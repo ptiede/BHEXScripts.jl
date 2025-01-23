@@ -16,9 +16,6 @@ end
 
 function best_image(post, ntrials=20, maxiters=10_000, rng=rng)
     sols = map(1:ntrials) do i
-        start = prior_sample(rng, post)
-        start.instrument.lg .= 0.0
-        start.instrument.gp .= 0.01
         xopt0, sol0 = comrade_opt(post, Adam();
                            initial_params=prior_sample(rng, post), maxiters=maxiters÷2, g_tol=1e-1)
         @info "Preliminary image $i/$(ntrials) done: minimum: $(sol0.minimum)"
