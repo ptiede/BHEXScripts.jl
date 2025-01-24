@@ -35,13 +35,16 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--nadapt`: the number of MCMC samples to use for adaptation. Default is 2_500.
 - `-f, --ferr`: the fractional error in the data. Default is 0.0.
 - `--order`: the order of the Markov Random Field. Default is -1 which uses the Matern kernel.
+- `--model`: The model to use for the prior image. Default is `:ring` other are `:isojet` and `:jet`.
+             If `:isojet` is used, the there is a core with a isotropic extended emission. If `:jet` 
+             is used, we fit the direction of the jet with a Gaussian. Note that `:jet` can be
+             quite hard to fit.
 
 # Flags
 
 - `-r, ---restart`: Restart a previous checkpointed run assuming the checkpoint file is in the outpath.
 - `-b, --benchmark`: Run a benchmarking test to see how long it takes to evaluate the logdensity and its gradient.
 - `--scanavg`: Scan average the data prior to fitting. Note that is the data is merged multifrequency data, this will not work properly.
-- `--jet`: Flag that we are considering jet imaging and not photon rings.
 - `--space`: Flag space baselines. Namely this will flag any ground to space baselines.
 """
 @main function main(uvfile::String; outpath::String="",
@@ -51,9 +54,9 @@ Fits BHEX data using Comrade and ring prior for the image.
   lftot::Float64=0.2, uftot::Float64=2.5,
   uvmin::Float64=0.2e9,
   nimgs::Int=200, al::Float64=0.2,
+  model::String="ring",
   restart::Bool=false, benchmark::Bool=false, nsample::Int=5_000, nadapt::Int=2_500,
   scanavg::Bool=false,
-  jet::Bool=false,
   space::Bool=false,
   ferr::Float64=0.0,
   order::Int=-1
@@ -115,14 +118,21 @@ Fits BHEX data using Comrade and ring prior for the image.
   beam = beamsize(data)
   @info "Beam relative to pixel size: = $(beam/μas2rad(psize))"
 
-  if jet
-    m = modify(Gaussian(), Stretch(beam))
-    mimg = intensitymap(m, g)
-    imgmod = ImagingModel(TotalIntensity(), MimgPlusBkgd(mimg ./ sum(mimg)), g, Uniform(lftot, uftot); base)
-    @info "Assuming the image is a jet structure"
-  else
+  if model == "ring"
     imgmod = ImagingModel(TotalIntensity(), DblRingWBkgd(), g, Uniform(lftot, uftot); base, order)
     @info "Assuming the image is a ring"
+  elseif model == "isojet"
+    @info "Assuming the image is a isotropic jet structure"
+    m = modify(Gaussian(), Stretch(beam/2))
+    mimg = intensitymap(m, g)
+    imgmod = ImagingModel(TotalIntensity(), MimgPlusBkgd(mimg ./ sum(mimg)), g, Uniform(lftot, uftot); base)
+  elseif model == "jet"
+    @info "Assuming the image is a anisotropic jet structure"
+    m = modify(Gaussian(), Stretch(beam/2))
+    mimg = intensitymap(m, g)
+    imgmod = ImagingModel(TotalIntensity(), JetGauss(mimg./sum(mimg)), g, Uniform(lftot, uftot); base, order)
+  else
+    throw(ArgumentError("Unknown model: $model please pick from :ring, :isojet, :jet"))
   end
 
 
@@ -134,7 +144,7 @@ Fits BHEX data using Comrade and ring prior for the image.
     data, outpath, skym, intm;
     nsample, nadapt,
     restart, benchmark,
-    maxiters=10_000, ntrials=3, nimgs
+    maxiters=15_000, ntrials=5, nimgs
   )
 end
 

@@ -134,6 +134,30 @@ function genmeanprior(::MimgPlusBkgd)
     return Dict(:fb => Beta(1.0, 5.0))
 end
 
+struct JetGauss{M}
+    core::M
+end
+
+function make_mean(mimg::JetGauss, grid, θ)
+    (;r, τ, ξτ, x, y, fj) = θ
+    jet = intensitymap(modify(Gaussian(), Stretch(r, r*(1+τ)), Rotate(ξτ/2), Shift(x, y)), grid)
+    out = mimg.core .* (1-fj) .+ jet./sum(jet) .* fj
+    return out
+end
+
+function genmeanprior(m::JetGauss)
+    fovx, fovy = fieldofview(m.core)
+    dx, dy = pixelsizes(m.core)
+    return Dict(
+        :r  => Uniform(dx*10, fovx/3),
+        :τ  => Exponential(1.0),
+        :ξτ => DiagonalVonMises(0.0, inv(π^2)),
+        :x  => Uniform(-fovx/4, fovx/4),
+        :y  => Uniform(-fovy/4, fovy/4),
+        :fj => Beta(1.0, 5.0)
+        )
+end
+
 
 struct DblRing end
 centerfix(::Type{<:DblRing}) = false
