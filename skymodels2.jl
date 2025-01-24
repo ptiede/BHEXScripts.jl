@@ -141,7 +141,8 @@ end
 function make_mean(mimg::JetGauss, grid, θ)
     (;r, τ, ξτ, x, y, fj) = θ
     img = intensitymap(modify(Gaussian(), Stretch(r, r*(1+τ)), Rotate(ξτ/2), Shift(x, y)), grid)
-    img .= mimg.core .* (1-fj) .+ jet./sum(jet) .* fj
+    fl = sum(img)
+    img .= mimg.core .* (1-fj) .+ img./fl .* fj
     return img
 end
 
