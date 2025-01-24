@@ -140,9 +140,9 @@ end
 
 function make_mean(mimg::JetGauss, grid, θ)
     (;r, τ, ξτ, x, y, fj) = θ
-    jet = intensitymap(modify(Gaussian(), Stretch(r, r*(1+τ)), Rotate(ξτ/2), Shift(x, y)), grid)
-    out = mimg.core .* (1-fj) .+ jet./sum(jet) .* fj
-    return out
+    img = intensitymap(modify(Gaussian(), Stretch(r, r*(1+τ)), Rotate(ξτ/2), Shift(x, y)), grid)
+    img .= mimg.core .* (1-fj) .+ jet./sum(jet) .* fj
+    return img
 end
 
 function genmeanprior(m::JetGauss)
