@@ -55,8 +55,6 @@ function comrade_imager(data, outbase, skym, intm; maxiters=15_000, ntrials=10,
 
     out = outbase
     g = post.skymodel.grid.imgdomain
-    # refine the grid for plotting
-    gimg = imagepixels(fieldofview(g)..., map(x->x, size(g))..., phasecenter(g)...)
 
 
     if !restart && isnothing(start)

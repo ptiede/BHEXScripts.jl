@@ -1,4 +1,5 @@
-using Pkg; Pkg.activate(@__DIR__)
+using Pkg;
+Pkg.activate(@__DIR__);
 using Comonicon
 
 using LinearAlgebra
@@ -7,7 +8,7 @@ include(joinpath(@__DIR__, "imaging_driver.jl"))
 LinearAlgebra.BLAS.set_num_threads(1)
 VLBISkyModels.FFTW.set_num_threads(1)
 if Threads.nthreads() > 1
-    VLBISkyModels.NFFT._use_threads[] = false
+  VLBISkyModels.NFFT._use_threads[] = false
 end
 
 
@@ -44,90 +45,97 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--space`: Flag space baselines. Namely this will flag any ground to space baselines.
 """
 @main function main(uvfile::String; outpath::String="",
-              fovx::Float64 = 200.0, fovy::Float64 = fovx,
-              psize::Float64 = 1.0, 
-              x::Float64 = 0.0, y::Float64 = 0.0,
-              lftot::Float64 = 0.2, uftot::Float64 = 2.5,
-              uvmin::Float64=0.2e9,
-              nimgs::Int = 200, al::Float64 = 0.2,
-              restart::Bool=false, benchmark::Bool=false, nsample::Int=5_000, nadapt::Int=2_500,
-              scanavg::Bool=false,
-              jet::Bool=false, 
-              space::Bool=false,
-              ferr::Float64 = 0.0,
-              order::Int=-1
-              )
+  fovx::Float64=200.0, fovy::Float64=fovx,
+  psize::Float64=1.0,
+  x::Float64=0.0, y::Float64=0.0,
+  lftot::Float64=0.2, uftot::Float64=2.5,
+  uvmin::Float64=0.2e9,
+  nimgs::Int=200, al::Float64=0.2,
+  restart::Bool=false, benchmark::Bool=false, nsample::Int=5_000, nadapt::Int=2_500,
+  scanavg::Bool=false,
+  jet::Bool=false,
+  space::Bool=false,
+  ferr::Float64=0.0,
+  order::Int=-1
+)
 
-    fovxrad = μas2rad(fovx)
-    fovyrad = μas2rad(fovy)
-    nx = ceil(Int, fovx/psize)
-    ny = ceil(Int, fovy/psize)
+  fovxrad = μas2rad(fovx)
+  fovyrad = μas2rad(fovy)
+  nx = ceil(Int, fovx / psize)
+  ny = ceil(Int, fovy / psize)
 
-    outpath = isempty(outpath) ? first(splitext(uvfile)) : joinpath(outpath, first(splitext(basename(uvfile))))
-    @info "Fitting the data: $uvfile"
-    @info "Outputing to $outpath"
-    @info "Field of view: ($fovx, $fovy) μas"
-    @info "number of pixels: ($nx, $ny)"
-    @info "Image center offset: ($x, $y) μas"
-    @info "Adding $ferr fractional error to the data"
+  outpath = isempty(outpath) ? first(splitext(uvfile)) : joinpath(outpath, first(splitext(basename(uvfile))))
+  @info "Fitting the data: $uvfile"
+  @info "Outputing to $outpath"
+  @info "Field of view: ($fovx, $fovy) μas"
+  @info "number of pixels: ($nx, $ny)"
+  @info "Image center offset: ($x, $y) μas"
+  @info "Adding $ferr fractional error to the data"
 
-    if order < 0
-        @info "Using Matern kernel for stochastic model"
-        base = Matern()
-    else
-        @info "Using Markov Random Field of order $order for stochastic model"
-        base = GMRF
-    end
-    
-
-    x0 = μas2rad(x)
-    y0 = μas2rad(y)
-    if Threads.nthreads() > 1
-        g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; executor=ThreadsEx(:dynamic))
-    else
-        g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0)
-    end
-
-
-    obs = ehtim.obsdata.load_uvfits(uvfile)
-    if scanavg
-        obsavg = scan_average(obs.flag_uvdist(uv_min=uvmin))
-    else
-        obsavg = obs.flag_uvdist(uv_min=uvmin)
-    end
-
-    if !space
-        data = add_fractional_noise(extract_table(obsavg, Visibilities()), ferr)
-    else
-        @warn "We are flagging space baselines as requested by the `--space` flag"
-        data = add_fractional_noise(extract_table(obsavg.flag_sites(["space"]), Visibilities()), ferr)
-    end
-
-    
-    beam = beamsize(data)
-    @info "Beam relative to pixel size: = $(beam/μas2rad(psize))"
-
-    if jet
-        m = modify(Gaussian(), Stretch(beam))
-        mimg = intensitymap(m, g)
-        imgmod = ImagingModel(TotalIntensity(), MimgPlusBkgd(mimg./sum(mimg)), g, Uniform(lftot, uftot); base)
-        @info "Assuming the image is a jet structure"
-    else
-        imgmod = ImagingModel(TotalIntensity(), DblRingWBkgd(), g, Uniform(lftot, uftot); base, order)
-        @info "Assuming the image is a ring"
-    end
+  if order < 0
+    @info "Using Matern kernel for stochastic model"
+    base = Matern()
+  else
+    @info "Using Markov Random Field of order $order for stochastic model"
+    base = GMRF
+  end
 
 
 
-    skpr   = skyprior(imgmod; beamsize=beam)
-    skym   = SkyModel(imgmod, skpr, g)
-    intm   = build_instrument(;lgamp_sigma=al)
-    comrade_imager(
-                   data, outpath, skym, intm;
-                   nsample, nadapt,
-                   restart, benchmark,
-                   maxiters=10_000, ntrials=3, nimgs
-                   )
+  obs = ehtim.obsdata.load_uvfits(uvfile)
+  if scanavg
+    obsavg = scan_average(obs.flag_uvdist(uv_min=uvmin))
+  else
+    obsavg = obs.flag_uvdist(uv_min=uvmin)
+  end
+
+
+
+  if !space
+    data = add_fractional_noise(extract_table(obsavg, Visibilities()), ferr)
+  else
+    @warn "We are flagging space baselines as requested by the `--space` flag"
+    data = add_fractional_noise(extract_table(obsavg.flag_sites(["space"]), Visibilities()), ferr)
+  end
+
+  x0 = μas2rad(x)
+  y0 = μas2rad(y)
+  hdr = ComradeBase.MinimalHeader(string(data.config.source), 
+                                  data.config.ra, data.config.dec, 
+                                  data.config.mjd, data[:baseline].Fr[1] # assume all frequencies are the same
+                                )
+  if Threads.nthreads() > 1
+    g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; executor=ThreadsEx(:dynamic), header=hdr)
+  else
+    g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; header=hdr)
+  end
+
+
+
+  beam = beamsize(data)
+  @info "Beam relative to pixel size: = $(beam/μas2rad(psize))"
+
+  if jet
+    m = modify(Gaussian(), Stretch(beam))
+    mimg = intensitymap(m, g)
+    imgmod = ImagingModel(TotalIntensity(), MimgPlusBkgd(mimg ./ sum(mimg)), g, Uniform(lftot, uftot); base)
+    @info "Assuming the image is a jet structure"
+  else
+    imgmod = ImagingModel(TotalIntensity(), DblRingWBkgd(), g, Uniform(lftot, uftot); base, order)
+    @info "Assuming the image is a ring"
+  end
+
+
+
+  skpr = skyprior(imgmod; beamsize=beam)
+  skym = SkyModel(imgmod, skpr, g)
+  intm = build_instrument(; lgamp_sigma=al)
+  comrade_imager(
+    data, outpath, skym, intm;
+    nsample, nadapt,
+    restart, benchmark,
+    maxiters=10_000, ntrials=3, nimgs
+  )
 end
 
 
