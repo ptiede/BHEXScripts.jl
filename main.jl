@@ -35,8 +35,8 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--nadapt`: the number of MCMC samples to use for adaptation. Default is 2_500.
 - `-f, --ferr`: the fractional error in the data. Default is 0.0.
 - `--order`: the order of the Markov Random Field. Default is -1 which uses the Matern kernel.
-- `--model`: The model to use for the prior image. Default is `:ring` other are `:isojet` and `:jet`.
-             If `:isojet` is used, the there is a core with a isotropic extended emission. If `:jet` 
+- `--model`: The model to use for the prior image. Default is `ring` other are `isojet` and `jet`.
+             If `isojet` is used, the there is a core with a isotropic extended emission. If `jet` 
              is used, we fit the direction of the jet with a Gaussian. Note that `:jet` can be
              quite hard to fit.
 

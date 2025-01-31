@@ -148,13 +148,14 @@ end
 
 function genmeanprior(m::JetGauss)
     fovx, fovy = fieldofview(m.core)
+    x0, y0 = phasecenter(m.core)
     dx, dy = pixelsizes(m.core)
     return Dict(
         :r  => Uniform(dx*10, fovx/3),
         :τ  => Exponential(1.0),
         :ξτ => DiagonalVonMises(0.0, inv(π^2)),
-        :x  => Uniform(-fovx/4, fovx/4),
-        :y  => Uniform(-fovy/4, fovy/4),
+        :x  => Uniform(-fovx/4-x0, fovx/4-x0),
+        :y  => Uniform(-fovy/4-y0, fovy/4-y0),
         :fj => Beta(1.0, 5.0)
         )
 end
