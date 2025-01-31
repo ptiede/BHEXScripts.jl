@@ -14,6 +14,7 @@ using CSV
 using Serialization
 using BenchmarkTools
 using LinearAlgebra
+Enzyme.API.strong_zero!(true)
 include(joinpath(@__DIR__, "utils.jl"))
 include(joinpath(@__DIR__, "skymodels.jl"))
 include(joinpath(@__DIR__, "skymodels2.jl"))
