@@ -26,8 +26,9 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `-p, --psize`: the pixel size in microarcseconds. Default is 1 μas.
 - `-x, --x`: the x offset of image center in microarcseconds. Default is 0 μas.
 - `-y, --y`: the y offset of image center in microarcseconds. Default is 0 μas.
-- `--lftot`: the minimum flux density in Jy. Default is 0.2Jy.
-- `--uftot`: the maximum flux density in Jy. Default is 2.5Jy.
+- `--ftot`: The total flux. Can either we two numbers, i.e. 0.1, 2.5 which mean it fits the
+            total flux within that range, or a single number which means it fixes the total flux
+            using an apriori flux estimate.
 - `-u, --uvmin`: the minimum uv distance in λ. Default is 0.2e9.
 - `-n, --nimgs`: the number of image posterior samples to generate. Default is 200.
 - `-a, --al`: the log-gain amplitude prior standard deviation. Default is 0.2.
@@ -35,10 +36,12 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--nadapt`: the number of MCMC samples to use for adaptation. Default is 2_500.
 - `-f, --ferr`: the fractional error in the data. Default is 0.0.
 - `--order`: the order of the Markov Random Field. Default is -1 which uses the Matern kernel.
-- `--model`: The model to use for the prior image. Default is `:ring` other are `:isojet` and `:jet`.
-             If `:isojet` is used, the there is a core with a isotropic extended emission. If `:jet` 
+- `--model`: The model to use for the prior image. Default is `ring` other are `isojet` and `jet`.
+             If `isojet` is used, the there is a core with a isotropic extended emission. If `jet` 
              is used, we fit the direction of the jet with a Gaussian. Note that `:jet` can be
              quite hard to fit.
+- `--maxiters`: the maximum number of iterations for the optimizer. Default is 15_000.
+- `--ntrials`: the number of trials to run the optimizer. Default is 10.
 
 # Flags
 
@@ -51,14 +54,16 @@ Fits BHEX data using Comrade and ring prior for the image.
   fovx::Float64=200.0, fovy::Float64=fovx,
   psize::Float64=1.0,
   x::Float64=0.0, y::Float64=0.0,
-  lftot::Float64=0.2, uftot::Float64=2.5,
-  uvmin::Float64=0.2e9,
+  ftot::String="0.2, 2.5",
+  uvmin::Float64=0e9,
   nimgs::Int=200, al::Float64=0.2,
   model::String="ring",
   restart::Bool=false, benchmark::Bool=false, nsample::Int=5_000, nadapt::Int=2_500,
   scanavg::Bool=false,
   space::Bool=false,
   ferr::Float64=0.0,
+  maxiters::Int=15_000,
+  ntrials::Int=10,
   order::Int=-1
 )
 
@@ -74,6 +79,19 @@ Fits BHEX data using Comrade and ring prior for the image.
   @info "number of pixels: ($nx, $ny)"
   @info "Image center offset: ($x, $y) μas"
   @info "Adding $ferr fractional error to the data"
+
+  ftots = parse.(Float64, split(ftot, ","))
+
+  if length(ftots) == 1
+    @info "Using a fixed flux of $(ftots[1])"
+    ftotpr = ftots[1]
+  elseif length(ftots) == 2
+    @info "Fitting the total flux between $(ftots[1]) and $(ftots[2])"
+    ftotpr = Uniform(ftots[1], ftots[2])
+  else
+    throw(ArgumentError("The --ftot flag should have either one or two values while it parsed $(ftots)"))
+  end
+
 
   if order < 0
     @info "Using Matern kernel for stochastic model"
@@ -119,18 +137,18 @@ Fits BHEX data using Comrade and ring prior for the image.
   @info "Beam relative to pixel size: = $(beam/μas2rad(psize))"
 
   if model == "ring"
-    imgmod = ImagingModel(TotalIntensity(), DblRingWBkgd(), g, Uniform(lftot, uftot); base, order)
+    imgmod = ImagingModel(TotalIntensity(), DblRingWBkgd(), g, ftotpr; base, order)
     @info "Assuming the image is a ring"
   elseif model == "isojet"
     @info "Assuming the image is a isotropic jet structure"
     m = modify(Gaussian(), Stretch(beam/2))
     mimg = intensitymap(m, g)
-    imgmod = ImagingModel(TotalIntensity(), MimgPlusBkgd(mimg ./ sum(mimg)), g, Uniform(lftot, uftot); base)
+    imgmod = ImagingModel(TotalIntensity(), MimgPlusBkgd(mimg ./ sum(mimg)), g, ftotpr; base)
   elseif model == "jet"
-    @info "Assuming the image is a anisotropic jet structure"
+    @info "Assuming the image is an anisotropic jet structure"
     m = modify(Gaussian(), Stretch(beam/2))
     mimg = intensitymap(m, g)
-    imgmod = ImagingModel(TotalIntensity(), JetGauss(mimg./sum(mimg)), g, Uniform(lftot, uftot); base, order)
+    imgmod = ImagingModel(TotalIntensity(), JetGauss(mimg./sum(mimg)), g, ftotpr; base, order)
   else
     throw(ArgumentError("Unknown model: $model please pick from :ring, :isojet, :jet"))
   end
@@ -144,7 +162,7 @@ Fits BHEX data using Comrade and ring prior for the image.
     data, outpath, skym, intm;
     nsample, nadapt,
     restart, benchmark,
-    maxiters=15_000, ntrials=5, nimgs
+    maxiters=maxiters, ntrials=ntrials, nimgs
   )
 end
 
