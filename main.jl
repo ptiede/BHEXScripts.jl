@@ -47,7 +47,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 
 - `-r, ---restart`: Restart a previous checkpointed run assuming the checkpoint file is in the outpath.
 - `-b, --benchmark`: Run a benchmarking test to see how long it takes to evaluate the logdensity and its gradient.
-- `--scanavg`: Scan average the data prior to fitting. Note that is the data is merged multifrequency data, this will not work properly.
+- `--scanavg`: Scan average the data prior to fitting. Note that if the data is merged multifrequency data, this will not work properly.
 - `--space`: Flag space baselines. Namely this will flag any ground to space baselines.
 """
 @main function main(uvfile::String; outpath::String="",
@@ -104,6 +104,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 
 
   obs = ehtim.obsdata.load_uvfits(uvfile)
+  obs.add_scans()
   if scanavg
     obsavg = scan_average(obs.flag_uvdist(uv_min=uvmin))
   else

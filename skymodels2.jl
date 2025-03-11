@@ -1,6 +1,8 @@
 abstract type AbstractImagingModel end
 
 abstract type PolRep end
+struct Poincare <: PolModel end
+struct PolExp <: PolModel end
 struct TotalIntensity <: PolRep end
 struct Matern end
 
@@ -11,6 +13,27 @@ struct ImagingModel{P,M,G,F,B,C} <: AbstractImagingModel
     base::B
     order::Int
 end
+
+centerfix(::Type{<:Any}) = true
+
+
+Enzyme.EnzymeRules.inactive_type(::Type{<:ImagingModel}) = true
+
+
+function fast_centroid(img::IntensityMap{<:Real,2})
+    x0 = zero(eltype(img))
+    y0 = zero(eltype(img))
+    dp = domainpoints(img)
+    fs = Comrade._fastsum(img)
+    @inbounds for i in CartesianIndices(img)
+        x0 += dp[i].X*img[i]
+        y0 += dp[i].Y*img[i]
+    end
+    return x0/fs, y0/fs
+end
+
+fast_centroid(img::IntensityMap{<:StokesParams}) = fast_centroid(stokes(img, :I))
+
 
 function ImagingModel(p::PolRep, mimg::M, grid, ftot; order=1, base=GMRF, center=centerfix(M)) where {M}
     b = prepare_base(base, grid, order)
@@ -40,7 +63,7 @@ function (m::ImagingModel{P})(θ, meta) where {P}
 
     pmap = make_image(P, m.base, fimg, mimg, θ)
     if center(m)
-        x0, y0 = centroid(pmap)
+        x0, y0 = fast_centroid(pmap)
         return shifted(ContinuousImage(pmap, BSplinePulse{3}()), -x0, -y0)
     else
         return ContinuousImage(pmap, BSplinePulse{3}())
@@ -48,27 +71,171 @@ function (m::ImagingModel{P})(θ, meta) where {P}
 
 end
 
-function make_image(::Type{<:TotalIntensity}, ::Type{<:VLBIImagePriors.MarkovRandomField}, ftot, mimg, θ)
-    (;c, σ) = θ
-    img = apply_fluctuations(CenteredLR(), mimg, σ*c.params)
-    bimg = baseimage(img)
-    for i in eachindex(img)
-        bimg[i] *= ftot
-    end
-    return  img
-end
-
-function make_image(::Type{<:TotalIntensity}, trf::VLBIImagePriors.StationaryMatern, ftot, mimg, θ)
+@inline function make_image(::Type{<:TotalIntensity}, trf::VLBIImagePriors.StationaryMatern, ftot, mimg, θ)
     (;c, σ, ρx, ρy, ξm, ν) = θ
     δ = trf(c, (ρx, ρy), ξm/2, ν)
-    δ .*= σ
-    img = apply_fluctuations(CenteredLR(), mimg, δ)
-    bimg = baseimage(img)
-    for i in eachindex(img)
-        bimg[i] *= ftot
+    for i in eachindex(δ)
+        δ[i] *= σ
     end
-    return img
+    return make_stokesi(ftot, mimg, δ)
 end
+
+@inline function make_image(::Type{<:TotalIntensity}, ::Type{<:VLBIImagePriors.MarkovRandomField}, ftot, mimg, θ) 
+    make_stokesi(ftot, mimg, θ.σ*θ.c.params)
+end
+
+@inline function make_stokesi(ftot, mimg, δ)
+    stokesi = apply_fluctuations(CenteredLR(), mimg, δ)
+    pstokesi = baseimage(stokesi)
+    for i in eachindex(pstokesi)
+        pstokesi[i] *= ftot
+    end
+    return stokesi
+end
+
+@inline function make_image(::Type{<:Poincare}, ::Type{<:VLBIImagePriors.MarkovRandomField}, ftot, mimg, θ)
+    (;c, σ, p, p0, pσ, angparams) = θ
+    return make_poincare(ftot, mimg, σ.*c.params, p0, pσ, p.params, angparams)
+end
+
+@inline function make_image(::Type{<:PolExp}, ::Type{<:VLBIImagePriors.MarkovRandomField}, ftot, mimg, θ)
+    (;a, b, c, d, σa, σb, σc, σd,) = θ
+    return make_pol2expimage(ftot, σa*a.params, σb*b.params, σc*c.params, σd*d.params, mimg)
+end
+
+@inline function make_image(::Type{<:Poincare}, trf::VLBIImagePriors.StationaryMatern, ftot, mimg, θ)
+    (;c, σ, ρx, ρy, ξm, ν, p, p0, pσ, pν, pρx, pρy, pξm, angparams) = θ
+    δ = trf(c, (ρx, ρy), ξm/2, ν)
+    pδ= trf(p, (pρx, pρy), pξm/2, pν)
+    for i in eachindex(δ)
+        δ[i] *= σ
+    end
+    return make_poincare(ftot, mimg, δ, p0, pσ, pδ, angparams)
+end
+
+@inline function make_image(::Type{<:PolExp}, trf::VLBIImagePriors.StationaryMatern, ftot, mimg, θ)
+    (;a, b, c, d, ρa, ρb, ρc, ρd, νa, νb, νc, νd, σa, σb, σc, σd,) = θ
+    δa = trf(a, ρa, νa)
+    δb = trf(b, ρb, νb)
+    δc = trf(c, ρc, νc)
+    δd = trf(d, ρd, νd)
+    @inbounds for i in eachindex(δa, δb, δc, δd)
+        δa[i] *= σa
+        δb[i] *= σb
+        δc[i] *= σc
+        δd[i] *= σd
+    end 
+    return make_pol2expimage(ftot, δa, δb, δc, δd, mimg)
+end
+
+function make_poincare(ftot, mimg, δ, p0, pσ, pδ, angparams)
+    stokesi = apply_fluctuations(CenteredLR(), mimg, δ)
+    pstokesi = parent(stokesi)
+    ptotim = similar(pstokesi)
+    for i in eachindex(pstokesi, ptotim, pδ)
+        pstokesi[i] *= ftot
+        ptotim[i] = logistic(p0 + pσ*pδ[i])
+    end
+    pmap = PoincareSphere2Map(stokesi, ptotim, angparams)
+    return pmap
+end
+
+function make_pol2expimage(ftot, a, b, c, d, mimg)
+    # this alloccated a whole new map so we can do things in place after
+    δ = PolExp2Map(a, b, c, d, axisdims(mimg))
+    brast = baseimage(δ)
+    δI= sum(brast.I)
+    fr = zero(δI)
+    @inbounds for i in eachindex(mimg, brast)
+        brast[i] *= mimg[i]/δI
+        fr += brast[i].I
+    end
+
+    for i in eachindex(brast)
+        brast[i] *= ftot/fr
+    end
+    pmap = IntensityMap(brast, axisdims(mimg)) 
+    return pmap
+end
+
+
+function genimgprior(::Type{<:Poincare}, base::Type{<:VLBIImagePriors.MarkovRandomField}, grid, beamsize, order)
+    cprior = corr_image_prior(grid, beamsize; base=base, order=order, lower=4.0)
+    default = Dict(
+        :c => cprior,
+        :σ => truncated(Normal(0.0, 0.5); lower = 0.0),
+        :p => cprior,
+        :p0=> Normal(-1.0, 2.0),
+        :pσ=> truncated(Normal(0.0, 0.5); lower = 0.0),
+        :angparams => ImageSphericalUniform(size(cprior.priormap.cache)...)
+        )
+    return default
+end
+
+function genimgprior(::Type{<:PolExp}, base::Type{<:VLBIImagePriors.MarkovRandomField}, grid, beamsize, order)
+    cprior = corr_image_prior(grid, beamsize; base=base, order=order, lower=4.0)
+    default = Dict(
+        :a => cprior,
+        :b => cprior,
+        :c => cprior,
+        :d => cprior,
+        :σa => truncated(Normal(0.0, 0.5); lower=0.0),
+        :σb => truncated(Normal(0.0, 0.5); lower=0.0),
+        :σc => truncated(Normal(0.0, 0.5); lower=0.0),
+        :σd => truncated(Normal(0.0, 0.05); lower=0.0),
+        )
+    return default
+end
+
+function genimgprior(::Type{<:Poincare}, base::VLBIImagePriors.StationaryMatern, grid, beamsize, order)
+    bs = beamsize/step(grid.XL)
+    cprior = VLBIImagePriors.std_dist(base)
+    ρpr = truncated(InverseGamma(1.0, -log(0.1)*bs); lower = 4.0, upper=2*max(size(grid)...))
+    νpr = truncated(InverseGamma(5.0, 9.0); lower = 0.1)
+
+    default = Dict(
+        :c  => cprior,
+        :σ  => truncated(Normal(0.0, 0.5); lower = 0.0),
+        :ρ  => ρpr,
+        :ν  => νpr,
+        :p  => cprior,
+        :ρp => ρpr,
+        :νp => νpr, 
+        :p0 => Normal(-1.0, 2.0),
+        :pσ => truncated(Normal(0.0, 0.5); lower = 0.0),
+        :angparams => ImageSphericalUniform(size(cprior.priormap.cache)...)
+        )
+    return default
+end
+
+function genimgprior(::Type{<:PolExp}, base::VLBIImagePriors.StationaryMatern, grid, beamsize, order)
+    bs = beamsize/step(grid.X)
+    cprior = VLBIImagePriors.std_dist(base)
+    ρpr = truncated(InverseGamma(1.0, -log(0.1)*bs); lower = 4.0, upper=2*max(size(grid)...))
+    νpr = truncated(InverseGamma(5.0, 9.0); lower = 0.1)
+
+    default = Dict(
+        :a => cprior,
+        :b => cprior,
+        :c => cprior,
+        :d => cprior,
+        :σa => truncated(Normal(0.0, 0.5); lower=0.0),
+        :σb => truncated(Normal(0.0, 0.5); lower=0.0),
+        :σc => truncated(Normal(0.0, 0.5); lower=0.0),
+        :σd => truncated(Normal(0.0, 0.1); lower=0.0),
+        :ρa    => ρpr,
+        :νa    => νpr, 
+        :ρb    => ρpr,
+        :νb    => νpr,
+        :ρc    => ρpr,
+        :νc    => νpr,
+        :ρd    => ρpr,
+        :νd    => νpr
+        )
+    return default
+end
+
+
 
 
 
@@ -91,28 +258,30 @@ function skyprior(m::ImagingModel{P}; beamsize=μas2rad(20.0), overrides::Dict=D
 end
 
 function genimgprior(::Type{<:TotalIntensity}, base::Type{<:VLBIImagePriors.MarkovRandomField}, grid, beamsize, order)
-    cprior = corr_image_prior(grid, beamsize; base=base, order=order, lower=5.0)
+    cprior = corr_image_prior(grid, beamsize; base=base, order=order, lower=4.0)
     default = Dict(
         :c => cprior,
-        :σ => truncated(Normal(0.0, 0.1); lower = 0.0)
+        :σ => truncated(Normal(0.0, 0.5); lower = 0.0)
         )
     return default
 end
 
 function genimgprior(::Type{<:TotalIntensity}, base::VLBIImagePriors.StationaryMatern, grid, beamsize, order)
-    bs = beamsize/pixelsizes(grid).X
+    bs = beamsize/step(grid.X)
     cprior = VLBIImagePriors.std_dist(base)
+    ρpr = truncated(InverseGamma(1.0, -log(0.1)*bs); lower = 4.0, upper=2*max(size(grid)...))
+    νpr = truncated(InverseGamma(5.0, 9.0); lower = 0.1)
+
     default = Dict(
         :c  => cprior,
-        :σ  => truncated(Normal(0.0, 0.5); lower = 0.0),
-        :ρx => 0.5+InverseGamma(1.0, -log(0.1)*bs),
-        :ρy => 0.5+InverseGamma(1.0, -log(0.1)*bs),
+        :σ  => truncated(Normal(0.0, 1.0); lower = 0.0),
+        :ρx => ρpr,
+        :ρy => ρpr,
         :ξm => DiagonalVonMises(0.0, inv(π^2)),
-        :ν  => 0.1+InverseGamma(5.0, 9.0)
+        :ν  => νpr
         )
     return default
 end
-
 
 function make_mean(mimg::IntensityMap, grid, θ)
     return mimg
