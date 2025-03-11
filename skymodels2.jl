@@ -52,7 +52,6 @@ prepare_base(::Matern, grid, order) = first(matern(size(grid)))
 
 center(::ImagingModel{P, M, G, F, B, C}) where {P, M, G, F, B, C} = C
 
-centerfix(::Type{<:Any}) = true
 
 getftot(m::ImagingModel{P, M, G, <:Real}, _)   where {P, M, G} = m.ftot
 getftot(::ImagingModel{P, M, G}, θ) where {P, M, G} = θ.ftot
@@ -163,7 +162,7 @@ function genimgprior(::Type{<:Poincare}, base::Type{<:VLBIImagePriors.MarkovRand
     cprior = corr_image_prior(grid, beamsize; base=base, order=order, lower=4.0)
     default = Dict(
         :c => cprior,
-        :σ => truncated(Normal(0.0, 0.5); lower = 0.0),
+        :σ => truncated(Normal(0.0, 0.1); lower = 0.0),
         :p => cprior,
         :p0=> Normal(-1.0, 2.0),
         :pσ=> truncated(Normal(0.0, 0.5); lower = 0.0),
@@ -179,10 +178,10 @@ function genimgprior(::Type{<:PolExp}, base::Type{<:VLBIImagePriors.MarkovRandom
         :b => cprior,
         :c => cprior,
         :d => cprior,
-        :σa => truncated(Normal(0.0, 0.5); lower=0.0),
+        :σa => truncated(Normal(0.0, 0.1); lower=0.0),
         :σb => truncated(Normal(0.0, 0.5); lower=0.0),
         :σc => truncated(Normal(0.0, 0.5); lower=0.0),
-        :σd => truncated(Normal(0.0, 0.05); lower=0.0),
+        :σd => truncated(Normal(0.0, 0.1); lower=0.0),
         )
     return default
 end
@@ -219,7 +218,7 @@ function genimgprior(::Type{<:PolExp}, base::VLBIImagePriors.StationaryMatern, g
         :b => cprior,
         :c => cprior,
         :d => cprior,
-        :σa => truncated(Normal(0.0, 0.5); lower=0.0),
+        :σa => truncated(Normal(0.0, 0.1); lower=0.0),
         :σb => truncated(Normal(0.0, 0.5); lower=0.0),
         :σc => truncated(Normal(0.0, 0.5); lower=0.0),
         :σd => truncated(Normal(0.0, 0.1); lower=0.0),
@@ -261,7 +260,7 @@ function genimgprior(::Type{<:TotalIntensity}, base::Type{<:VLBIImagePriors.Mark
     cprior = corr_image_prior(grid, beamsize; base=base, order=order, lower=4.0)
     default = Dict(
         :c => cprior,
-        :σ => truncated(Normal(0.0, 0.5); lower = 0.0)
+        :σ => truncated(Normal(0.0, 0.1); lower = 0.0)
         )
     return default
 end

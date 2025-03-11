@@ -21,6 +21,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 # Options
 
 - `-o, --outpath`: the path to the output directory where images and other stats will be saved. Default is the current directory.
+- `-a, --array`: the ehtim array or tarr file. If `--polarized` is used then this must be specified
 - `--fovx`: the field of view in microarcseconds. Default is 200 μas.
 - `--fovy`: the field of view in microarcseconds. Default is fovx.
 - `-p, --psize`: the pixel size in microarcseconds. Default is 1 μas.
@@ -31,7 +32,7 @@ Fits BHEX data using Comrade and ring prior for the image.
             using an apriori flux estimate.
 - `-u, --uvmin`: the minimum uv distance in λ. Default is 0.2e9.
 - `-n, --nimgs`: the number of image posterior samples to generate. Default is 200.
-- `-a, --al`: the log-gain amplitude prior standard deviation. Default is 0.2.
+- `-g, --lg`: the log-gain amplitude prior standard deviation. Default is 0.2.
 - `--nsample`: the number of MCMC samples from the posterior. Default is 5_000.
 - `--nadapt`: the number of MCMC samples to use for adaptation. Default is 2_500.
 - `-f, --ferr`: the fractional error in the data. Default is 0.0.
@@ -42,6 +43,8 @@ Fits BHEX data using Comrade and ring prior for the image.
              quite hard to fit.
 - `--maxiters`: the maximum number of iterations for the optimizer. Default is 15_000.
 - `--ntrials`: the number of trials to run the optimizer. Default is 10.
+- `--polrep:` The polarization representation. The default of `PolExp` which uses a matrix exponential representation.
+- `--refsite`: The reference site for EVPA calibration. Default is `ALMA`.
 
 # Flags
 
@@ -49,20 +52,25 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `-b, --benchmark`: Run a benchmarking test to see how long it takes to evaluate the logdensity and its gradient.
 - `--scanavg`: Scan average the data prior to fitting. Note that if the data is merged multifrequency data, this will not work properly.
 - `--space`: Flag space baselines. Namely this will flag any ground to space baselines.
+- `--polarized`: Fit the polarized data. This requires the `--array` flag to be set.
 """
 @main function main(uvfile::String; outpath::String="",
+  array::String="",
   fovx::Float64=200.0, fovy::Float64=fovx,
   psize::Float64=1.0,
   x::Float64=0.0, y::Float64=0.0,
   ftot::String="0.2, 2.5",
   uvmin::Float64=0e9,
-  nimgs::Int=200, al::Float64=0.2,
+  nimgs::Int=200, lg::Float64=0.2,
   model::String="ring",
   restart::Bool=false, benchmark::Bool=false, nsample::Int=5_000, nadapt::Int=2_500,
   scanavg::Bool=false,
   space::Bool=false,
   ferr::Float64=0.0,
   maxiters::Int=15_000,
+  polarized::Bool=false,
+  polrep::String="PolExp",
+  refsite::String="ALMA",
   ntrials::Int=10,
   order::Int=-1
 )
@@ -101,9 +109,29 @@ Fits BHEX data using Comrade and ring prior for the image.
     base = GMRF
   end
 
+  if polarized
+    dp = Coherencies()
+    @info "Using polarized model: $polrep"
+    if polrep == "PolExp"
+      prep = PolExp()
+    elseif polrep == "Poincare"
+      prep = Poincare()
+    else
+      throw(ArgumentError("Unknown polarized model: $polrep please pick from \"PolExp\", \"Poincare\""))
+    end
+  else
+    @info "Only fitting the total intensity"
+    dp = Visibilities()
+    prep = TotalIntensity()
+  end
 
 
-  obs = ehtim.obsdata.load_uvfits(uvfile)
+  if polarization
+    isempty(array) && throw(ArgumentError("If you are fitting polarized data, you must specify the array file"))
+    obs = Pyehtim.load_uvfits_and_array(uvfile, array, polrep="circ")
+  else
+    obs = ehtim.obsdata.load_uvfits(uvfile)
+  end
   obs.add_scans()
   if scanavg
     obsavg = scan_average(obs.flag_uvdist(uv_min=uvmin))
@@ -137,28 +165,36 @@ Fits BHEX data using Comrade and ring prior for the image.
   beam = beamsize(data)
   @info "Beam relative to pixel size: = $(beam/μas2rad(psize))"
 
-  if model == "ring"
-    imgmod = ImagingModel(TotalIntensity(), DblRingWBkgd(), g, ftotpr; base, order)
+  if model =="ringnojet"
+    mod = DblRing()
     @info "Assuming the image is a ring"
+  elseif model == "ring"
+    mod = DblRingWBkgd()
+    @info "Assuming the image is a ring with a background jet"
   elseif model == "isojet"
     @info "Assuming the image is a isotropic jet structure"
     m = modify(Gaussian(), Stretch(beam/2))
     mimg = intensitymap(m, g)
-    imgmod = ImagingModel(TotalIntensity(), MimgPlusBkgd(mimg ./ sum(mimg)), g, ftotpr; base)
+    mod = MimgPlusBkgd(mimg ./ sum(mimg))
   elseif model == "jet"
     @info "Assuming the image is an anisotropic jet structure"
     m = modify(Gaussian(), Stretch(beam/2))
     mimg = intensitymap(m, g)
-    imgmod = ImagingModel(TotalIntensity(), JetGauss(mimg./sum(mimg)), g, ftotpr; base, order)
+    imgmod = JetGauss(mimg./sum(mimg))
   else
-    throw(ArgumentError("Unknown model: $model please pick from :ring, :isojet, :jet"))
+    throw(ArgumentError("Unknown model: $model please pick from \"ringnojet\", \"ring\", \"isojet\", \"jet\""))
   end
 
+  imgmod = ImagingModel(prep, mod, g, ftotpr; base, order)
 
 
   skpr = skyprior(imgmod; beamsize=beam)
   skym = SkyModel(imgmod, skpr, g)
-  intm = build_instrument(; lgamp_sigma=al)
+  if polarized
+    intm = build_instrument_circular(;lgamp_sigma=lg)
+  else
+    intm = build_instrument(; lgamp_sigma=lg, refsite=Symbol(refsite))
+  end
   comrade_imager(
     data, outpath, skym, intm;
     nsample, nadapt,
