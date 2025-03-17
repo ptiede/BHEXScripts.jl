@@ -8,7 +8,7 @@ include(joinpath(@__DIR__, "imaging_driver.jl"))
 LinearAlgebra.BLAS.set_num_threads(1)
 VLBISkyModels.FFTW.set_num_threads(1)
 if Threads.nthreads() > 1
-  VLBISkyModels.NFFT._use_threads[] = false
+    VLBISkyModels.NFFT._use_threads[] = false
 end
 
 
@@ -53,155 +53,134 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--scanavg`: Scan average the data prior to fitting. Note that if the data is merged multifrequency data, this will not work properly.
 - `--space`: Flag space baselines. Namely this will flag any ground to space baselines.
 - `--polarized`: Fit the polarized data. This requires the `--array` flag to be set.
+- `--frcal`: Flag that the data has been FR-cal'd (not the default in ngehtsim)
 """
 @main function main(uvfile::String; outpath::String="",
-  array::String="",
-  fovx::Float64=200.0, fovy::Float64=fovx,
-  psize::Float64=1.0,
-  x::Float64=0.0, y::Float64=0.0,
-  ftot::String="0.2, 2.5",
-  uvmin::Float64=0e9,
-  nimgs::Int=200, lg::Float64=0.2,
-  model::String="ring",
-  restart::Bool=false, benchmark::Bool=false, nsample::Int=5_000, nadapt::Int=2_500,
-  scanavg::Bool=false,
-  space::Bool=false,
-  ferr::Float64=0.0,
-  maxiters::Int=15_000,
-  polarized::Bool=false,
-  polrep::String="PolExp",
-  refsite::String="ALMA",
-  ntrials::Int=10,
-  order::Int=-1
+    array::String="",
+    fovx::Float64=200.0, fovy::Float64=fovx,
+    psize::Float64=1.0,
+    x::Float64=0.0, y::Float64=0.0,
+    ftot::String="0.2, 2.5",
+    uvmin::Float64=0e9,
+    nimgs::Int=200, lg::Float64=0.2,
+    model::String="ring",
+    restart::Bool=false, benchmark::Bool=false, nsample::Int=5_000, nadapt::Int=2_500,
+    scanavg::Bool=false,
+    space::Bool=false,
+    ferr::Float64=0.0,
+    maxiters::Int=15_000,
+    polarized::Bool=false,
+    polrep::String="PolExp",
+    frcal::Bool=false,
+    ntrials::Int=10,
+    order::Int=-1
 )
 
-  fovxrad = μas2rad(fovx)
-  fovyrad = μas2rad(fovy)
-  nx = ceil(Int, fovx / psize)
-  ny = ceil(Int, fovy / psize)
-
-  outpath = isempty(outpath) ? first(splitext(uvfile)) : joinpath(outpath, first(splitext(basename(uvfile))))
-  @info "Fitting the data: $uvfile"
-  @info "Outputing to $outpath"
-  @info "Field of view: ($fovx, $fovy) μas"
-  @info "number of pixels: ($nx, $ny)"
-  @info "Image center offset: ($x, $y) μas"
-  @info "Adding $ferr fractional error to the data"
-
-  ftots = parse.(Float64, split(ftot, ","))
-
-  if length(ftots) == 1
-    @info "Using a fixed flux of $(ftots[1])"
-    ftotpr = ftots[1]
-  elseif length(ftots) == 2
-    @info "Fitting the total flux between $(ftots[1]) and $(ftots[2])"
-    ftotpr = Uniform(ftots[1], ftots[2])
-  else
-    throw(ArgumentError("The --ftot flag should have either one or two values while it parsed $(ftots)"))
-  end
-
-
-  if order < 0
-    @info "Using Matern kernel for stochastic model"
-    base = Matern()
-  else
-    @info "Using Markov Random Field of order $order for stochastic model"
-    base = GMRF
-  end
-
-  if polarized
-    dp = Coherencies()
-    @info "Using polarized model: $polrep"
-    if polrep == "PolExp"
-      prep = PolExp()
-    elseif polrep == "Poincare"
-      prep = Poincare()
+    fovxrad = μas2rad(fovx)
+    fovyrad = μas2rad(fovy)
+    nx = ceil(Int, fovx / psize)
+    ny = ceil(Int, fovy / psize)  
+    outpath = isempty(outpath) ? first(splitext(uvfile)) : joinpath(outpath, first(splitext(basename(uvfile))))
+    @info "Fitting the data: $uvfile"
+    @info "Outputing to $outpath"
+    @info "Field of view: ($fovx, $fovy) μas"
+    @info "number of pixels: ($nx, $ny)"
+    @info "Image center offset: ($x, $y) μas"
+    @info "Adding $ferr fractional error to the data"   
+    ftots = parse.(Float64, split(ftot, ","))   
+    if length(ftots) == 1
+        @info "Using a fixed flux of $(ftots[1])"
+        ftotpr = ftots[1]
+    elseif length(ftots) == 2
+        @info "Fitting the total flux between $(ftots[1]) and $(ftots[2])"
+        ftotpr = Uniform(ftots[1], ftots[2])
     else
-      throw(ArgumentError("Unknown polarized model: $polrep please pick from \"PolExp\", \"Poincare\""))
+        throw(ArgumentError("The --ftot flag should have either one or two values while it parsed $(ftots)"))
+    end 
+    if order < 0
+        @info "Using Matern kernel for stochastic model"
+        base = Matern()
+    else
+        @info "Using Markov Random Field of order $order for stochastic model"
+        base = GMRF
+    end 
+    if polarized
+        dp = Coherencies()
+        @info "Using polarized model: $polrep"
+        if polrep == "PolExp"
+            prep = PolExp()
+        elseif polrep == "Poincare"
+            prep = Poincare()
+        else
+            throw(ArgumentError("Unknown polarized model: $polrep please pick from \"PolExp\", \"Poincare\""))
+        end
+    else
+        @info "Only fitting the total intensity"
+        dp = Visibilities()
+        prep = TotalIntensity()
+    end 
+    if polarization
+        isempty(array) && throw(ArgumentError("If you are fitting polarized data, you must specify the array file"))
+        obs = Pyehtim.load_uvfits_and_array(uvfile, array, polrep="circ")
+    else
+        obs = ehtim.obsdata.load_uvfits(uvfile)
     end
-  else
-    @info "Only fitting the total intensity"
-    dp = Visibilities()
-    prep = TotalIntensity()
-  end
-
-
-  if polarization
-    isempty(array) && throw(ArgumentError("If you are fitting polarized data, you must specify the array file"))
-    obs = Pyehtim.load_uvfits_and_array(uvfile, array, polrep="circ")
-  else
-    obs = ehtim.obsdata.load_uvfits(uvfile)
-  end
-  obs.add_scans()
-  if scanavg
-    obsavg = scan_average(obs.flag_uvdist(uv_min=uvmin))
-  else
-    obsavg = obs.flag_uvdist(uv_min=uvmin)
-  end
-
-
-
-  if !space
-    data = add_fractional_noise(extract_table(obsavg, Visibilities()), ferr)
-  else
-    @warn "We are flagging space baselines as requested by the `--space` flag"
-    data = add_fractional_noise(extract_table(obsavg.flag_sites(["space"]), Visibilities()), ferr)
-  end
-
-  x0 = μas2rad(x)
-  y0 = μas2rad(y)
-  hdr = ComradeBase.MinimalHeader(string(data.config.source), 
-                                  data.config.ra, data.config.dec, 
-                                  data.config.mjd, data[:baseline].Fr[1] # assume all frequencies are the same
-                                )
-  if Threads.nthreads() > 1
-    g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; executor=ThreadsEx(:dynamic), header=hdr)
-  else
-    g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; header=hdr)
-  end
-
-
-
-  beam = beamsize(data)
-  @info "Beam relative to pixel size: = $(beam/μas2rad(psize))"
-
-  if model =="ringnojet"
-    mod = DblRing()
-    @info "Assuming the image is a ring"
-  elseif model == "ring"
-    mod = DblRingWBkgd()
-    @info "Assuming the image is a ring with a background jet"
-  elseif model == "isojet"
-    @info "Assuming the image is a isotropic jet structure"
-    m = modify(Gaussian(), Stretch(beam/2))
-    mimg = intensitymap(m, g)
-    mod = MimgPlusBkgd(mimg ./ sum(mimg))
-  elseif model == "jet"
-    @info "Assuming the image is an anisotropic jet structure"
-    m = modify(Gaussian(), Stretch(beam/2))
-    mimg = intensitymap(m, g)
-    imgmod = JetGauss(mimg./sum(mimg))
-  else
-    throw(ArgumentError("Unknown model: $model please pick from \"ringnojet\", \"ring\", \"isojet\", \"jet\""))
-  end
-
-  imgmod = ImagingModel(prep, mod, g, ftotpr; base, order)
-
-
-  skpr = skyprior(imgmod; beamsize=beam)
-  skym = SkyModel(imgmod, skpr, g)
-  if polarized
-    intm = build_instrument_circular(;lgamp_sigma=lg)
-  else
-    intm = build_instrument(; lgamp_sigma=lg, refsite=Symbol(refsite))
-  end
-  comrade_imager(
-    data, outpath, skym, intm;
-    nsample, nadapt,
-    restart, benchmark,
-    maxiters=maxiters, ntrials=ntrials, nimgs
-  )
+    obs.add_scans()
+    if scanavg
+        obsavg = scan_average(obs.flag_uvdist(uv_min=uvmin))
+    else
+        obsavg = obs.flag_uvdist(uv_min=uvmin)
+    end 
+    if !space
+        data = add_fractional_noise(extract_table(obsavg, Visibilities()), ferr)
+    else
+        @warn "We are flagging space baselines as requested by the `--space` flag"
+        data = add_fractional_noise(extract_table(obsavg.flag_sites(["space"]), Visibilities()), ferr)
+    end 
+    x0 = μas2rad(x)
+    y0 = μas2rad(y)
+    hdr = ComradeBase.MinimalHeader(string(data.config.source), 
+                                    data.config.ra, data.config.dec, 
+                                    data.config.mjd, data[:baseline].Fr[1] # assume all frequencies are the same
+                                  )
+    if Threads.nthreads() > 1
+        g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; executor=ThreadsEx(:dynamic), header=hdr)
+    else
+        g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; header=hdr)
+    end 
+    beam = beamsize(data)
+    @info "Beam relative to pixel size: = $(beam/μas2rad(psize))"   
+    if model =="ringnojet"
+        mod = DblRing()
+        @info "Assuming the image is a ring"
+    elseif model == "ring"
+        mod = DblRingWBkgd()
+        @info "Assuming the image is a ring with a background jet"
+    elseif model == "isojet"
+        @info "Assuming the image is a isotropic jet structure"
+        m = modify(Gaussian(), Stretch(beam/2))
+        mimg = intensitymap(m, g)
+        mod = MimgPlusBkgd(mimg ./ sum(mimg))
+    elseif model == "jet"
+        @info "Assuming the image is an anisotropic jet structure"
+        m = modify(Gaussian(), Stretch(beam/2))
+        mimg = intensitymap(m, g)
+        imgmod = JetGauss(mimg./sum(mimg))
+    else
+        throw(ArgumentError("Unknown model: $model please pick from \"ringnojet\", \"ring\", \"isojet\", \"jet\""))
+    end 
+    imgmod = ImagingModel(prep, mod, g, ftotpr; base, order)    
+    skpr = skyprior(imgmod; beamsize=beam)
+    skym = SkyModel(imgmod, skpr, g)
+    if polarized
+        intm = build_instrument_circular(;lgamp_sigma=lg, frcal)
+    else
+        intm = build_instrument(; lgamp_sigma=lg)
+    end
+    comrade_imager(
+        data, outpath, skym, intm;
+        nsample, nadapt,
+        restart, benchmark,
+        maxiters=maxiters, ntrials=ntrials, nimgs
+    )
 end
-
-
-# Put imports here so that the CLI is snappier

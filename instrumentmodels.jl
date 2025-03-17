@@ -1,12 +1,9 @@
 
 @inline fgain(x) = @fastmath exp(x.lg + 1im*x.gp)
 
-@inline function gain(x)
+@inline function gainpol(x)
     gR = exp(x.lgR + 1im*x.gpR)
-    lgrat = x.lgratμ + x.lgratσ*x.lgrat
-    gprat = x.gprat
-    gL =gR*exp(lgrat + 1im*gprat)
-    return gR, gL
+    return gR, gR
 end
 
 @inline jfr(g, d, r) = adjoint(r)*g*d*r
@@ -31,7 +28,7 @@ function build_instrument(;lgamp_sigma = 0.2, refant=SEFDReference(0.0))
     return InstrumentModel(G, intprior)
 end
 
-function build_instrument_circular(;refsite=:ALMA, frcal=true, lgamp_sigma=0.2)
+function build_instrument_circular(;frcal=false, lgamp_sigma=0.2)
 
     G = JonesG(gain)
 
@@ -47,11 +44,7 @@ function build_instrument_circular(;refsite=:ALMA, frcal=true, lgamp_sigma=0.2)
 
     intprior = (
         lgR   = ArrayPrior(IIDSitePrior(IntegSeg(), Normal(0.0, lgamp_sigma)); gain_amp_override...),
-        lgrat = ArrayPrior(IIDSitePrior(IntegSeg(), Normal(0.0, 1.0))),
-        lgratμ= ArrayPrior(IIDSitePrior(TrackSeg(), Normal(0.0, 0.2))),
-        lgratσ= ArrayPrior(IIDSitePrior(TrackSeg(), Exponential(0.2))),
         gpR   = ArrayPrior(IIDSitePrior(IntegSeg(), DiagonalVonMises(0.0, inv(π^2))); refant=SEFDReference(0.0), phase=true),
-        gprat = ArrayPrior(IIDSitePrior(IntegSeg(), DiagonalVonMises(0.0, inv(0.5^2))); refant=SingleReference(refsite, 0.0), phase=true),
         dRre  = ArrayPrior(IIDSitePrior(TrackSeg(), Normal(0.0, 0.15))),
         dRim  = ArrayPrior(IIDSitePrior(TrackSeg(), Normal(0.0, 0.15))),
         dLre  = ArrayPrior(IIDSitePrior(TrackSeg(), Normal(0.0, 0.15))),
