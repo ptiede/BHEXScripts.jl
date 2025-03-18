@@ -177,7 +177,7 @@ Fits BHEX data using Comrade and ring prior for the image.
             @info "Assuming the image is an anisotropic jet structure"
             m = modify(Gaussian(), Stretch(beam / 2))
             mimg = intensitymap(m, g)
-            imgmod = JetGauss(mimg ./ sum(mimg))
+            mod = JetGauss(mimg ./ sum(mimg))
     else
           throw(ArgumentError("Unknown model: $model please pick from \"ringnojet\", \"ring\", \"isojet\", \"jet\""))
     end

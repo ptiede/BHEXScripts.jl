@@ -100,8 +100,8 @@ end
 end
 
 @inline function make_image(::Type{<:TotalIntensity}, trf::VLBIImagePriors.StationaryMatern, ftot, mimg, θ)
-    (;c, σ, ρ, ν) = θ
-    δ = trf(c, ρ, ν)
+    (;c, σ, ρx, ρy, ρξ, ν) = θ
+    δ = trf(c, (ρx, ρy), ρξ/2, ν)
     return make_stokesi(ftot, mimg, δ)
 end
 
@@ -263,7 +263,9 @@ function genimgprior(::Type{<:TotalIntensity}, base::VLBIImagePriors.StationaryM
     default = Dict(
         :c => cprior,
         :σ => truncated(Normal(0.0, 1.0); lower = 0.0),
-        :ρ => ρpr,
+        :ρx => ρpr,
+        :ρy => ρpr,
+        :ρξ => DiagonalVonMises(0.0, inv(π^2)),
         :ν => νpr
         )
     return default
