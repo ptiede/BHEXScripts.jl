@@ -27,6 +27,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `-p, --psize`: the pixel size in microarcseconds. Default is 1 μas.
 - `-x, --x`: the x offset of image center in microarcseconds. Default is 0 μas.
 - `-y, --y`: the y offset of image center in microarcseconds. Default is 0 μas.
+- `--pa`: The position angle of the grid in degrees. Default is 0 degrees.
 - `--ftot`: The total flux. Can either we two numbers, i.e. 0.1, 2.5 which mean it fits the
             total flux within that range, or a single number which means it fixes the total flux
             using an apriori flux estimate.
@@ -60,6 +61,7 @@ Fits BHEX data using Comrade and ring prior for the image.
     fovx::Float64=200.0, fovy::Float64=fovx,
     psize::Float64=1.0,
     x::Float64=0.0, y::Float64=0.0,
+    pa::Float64=0.0,
     ftot::String="0.2, 2.5",
     uvmin::Float64=0e9,
     nimgs::Int=200, lg::Float64=0.2,
@@ -80,13 +82,16 @@ Fits BHEX data using Comrade and ring prior for the image.
     fovyrad = μas2rad(fovy)
     nx = ceil(Int, fovx / psize)
     ny = ceil(Int, fovy / psize)
+    posang = deg2rad(pa)
     outpath = isempty(outpath) ? first(splitext(uvfile)) : joinpath(outpath, first(splitext(basename(uvfile))))
     @info "Fitting the data: $uvfile"
     @info "Outputing to $outpath"
     @info "Field of view: ($fovx, $fovy) μas"
     @info "number of pixels: ($nx, $ny)"
     @info "Image center offset: ($x, $y) μas"
+    @info "PA of the grid $(pa) degrees"
     @info "Adding $ferr fractional error to the data"
+    @info "Is the data frcal'd: $frcal"
     ftots = parse.(Float64, split(ftot, ","))
     if length(ftots) == 1
         @info "Using a fixed flux of $(ftots[1])"
@@ -144,9 +149,9 @@ Fits BHEX data using Comrade and ring prior for the image.
         data.config.mjd, data[:baseline].Fr[1] # assume all frequencies are the same
     )
     if Threads.nthreads() > 1
-        g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; executor=ThreadsEx(:dynamic), header=hdr)
+        g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; posang, executor=ThreadsEx(:dynamic), header=hdr)
     else
-        g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; header=hdr)
+        g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; posang, header=hdr)
     end
     beam = beamsize(data)
     @info "Beam relative to pixel size: = $(beam/μas2rad(psize))"
