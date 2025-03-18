@@ -85,6 +85,7 @@ Fits BHEX data using Comrade and ring prior for the image.
     posang = deg2rad(pa)
     outpath = isempty(outpath) ? first(splitext(uvfile)) : joinpath(outpath, first(splitext(basename(uvfile))))
     @info "Fitting the data: $uvfile"
+    @info "Loading the array file: $array"
     @info "Outputing to $outpath"
     @info "Field of view: ($fovx, $fovy) μas"
     @info "number of pixels: ($nx, $ny)"
@@ -102,11 +103,17 @@ Fits BHEX data using Comrade and ring prior for the image.
     else
         throw(ArgumentError("The --ftot flag should have either one or two values while it parsed $(ftots)"))
     end
+
+    if nsample <= 5000 && polarized
+        @warn "5000 samples for polarized imaging is not enough please at least\n"* 
+              "double this and the number of adaption samples"
+    end
+
     if order < 0
-        @info "Using Matern kernel for stochastic model"
+        @info "Using Matern kernel for the stochastic model"
         base = Matern()
     else
-        @info "Using Markov Random Field of order $order for stochastic model"
+        @info "Using Markov Random Field of order $order for the stochastic model"
         base = GMRF
     end
     if polarized
