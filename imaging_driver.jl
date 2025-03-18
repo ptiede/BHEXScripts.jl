@@ -144,7 +144,5 @@ function comrade_imager(data, outbase, skym, intm; maxiters=15_000, ntrials=10,
         CairoMakie.save(imgout*"_draw$i.png", p)
     end
     mimg = mean(imgs)
-    simg = std(imgs)
     Comrade.save_fits(imgout*"_mean_image.fits", mimg)
-    Comrade.save_fits(imgout*"_std_image.fits", simg)
 end
