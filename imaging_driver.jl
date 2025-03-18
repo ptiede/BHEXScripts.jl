@@ -10,6 +10,7 @@ using Distributions
 using VLBIImagePriors
 using Enzyme
 using CSV
+using Plots
 using Serialization
 using BenchmarkTools
 using LinearAlgebra
@@ -68,18 +69,17 @@ function comrade_imager(data, outbase, skym, intm; maxiters=15_000, ntrials=10,
         xopt1, sol = comrade_opt(post1, Adam();
                            initial_params=sols[1], maxiters=maxiters÷2, g_tol=1e-1)
         
-        r = residuals(post1, xopt1)
-        fig = plotfields(r[1], :uvdist, :res)
-        save(out*"_residuals_step1_map.png", fig)
+        r1 = residual(post1, xopt1)
+        savefig(r1, out*"_residuals_step1_map.png")
 
         
         post2 = VLBIPosterior(skym, intm, add_fractional_noise(data, 0.01); admode=set_runtime_activity(Enzyme.Reverse))
         xopt2, sol = comrade_opt(post2, Adam();
                            initial_params=xopt1, maxiters=maxiters÷2, g_tol=1e-1)
 
-        r = residuals(post2, xopt2)
-        fig = plotfields(r[1], :uvdist, :res)
-        save(out*"_residuals_step2_map.png", fig)
+        r2 = residual(post2, xopt2)
+        savefig(r2, out*"_residuals_step2_map.png")
+
         xopt, sol = comrade_opt(post, Adam();
                             maxiters=maxiters, g_tol=1e-1,
                             initial_params=xopt2)
@@ -91,9 +91,8 @@ function comrade_imager(data, outbase, skym, intm; maxiters=15_000, ntrials=10,
         CairoMakie.save(imgout*"_optimal.png", p)
 
 
-        r = residuals(post, xopt)
-        fig = plotfields(r[1], :uvdist, :res)
-        save(out*"_residuals_final_map.png", fig)
+        rf = residual(post, xopt)
+        savefig(rf, out*"_residuals_final_map.png")
 
         if hasproperty(xopt, :instrument)
             k = keys(xopt.instrument)
@@ -101,8 +100,8 @@ function comrade_imager(data, outbase, skym, intm; maxiters=15_000, ntrials=10,
             map(k, v) do ki, vi
                 gtp = Comrade.caltable(vi)
                 CSV.write(out*"_ctable_$ki.csv", gtp)
-                fig = plotcaltable(gtp)
-                CairoMakie.save(out*"_ctable_$ki.png", fig)
+                fig = Plots.plot(gtp, layout=(3, 4), size=(800, 600))
+                savefig(fig, out*"_ctable_$ki.png")
             end
         end
     elseif restart && isnothing(start)
@@ -132,13 +131,8 @@ function comrade_imager(data, outbase, skym, intm; maxiters=15_000, ntrials=10,
     end
 
     ss = sample(chain, 10)
-    p = residuals(post, ss[begin])
-    fig, ax = baselineplot(p[1], :uvdist, :res)
-    for s in ss[2:end]
-        baselineplot!(ax, residuals(post, s)[1], :uvdist, :res)
-    end
-    ax.title = "χ² = $(mean(getindex.(chi2.(Ref(post), ss),1))/(2*length(post.data[1])))"
-    CairoMakie.save(out*"_residuals.png", fig)
+    p = residual(post, ss[begin])
+    savefig(p, out*"_residuals.png")
     # Finally let's construct some representative image reconstructions.
 
     samples = skymodel.(Ref(post), sample(chain, nimgs))

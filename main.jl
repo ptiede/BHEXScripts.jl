@@ -8,7 +8,7 @@ include(joinpath(@__DIR__, "imaging_driver.jl"))
 LinearAlgebra.BLAS.set_num_threads(1)
 VLBISkyModels.FFTW.set_num_threads(1)
 if Threads.nthreads() > 1
-    VLBISkyModels.NFFT._use_threads[] = false
+  VLBISkyModels.NFFT._use_threads[] = false
 end
 
 
@@ -21,7 +21,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 # Options
 
 - `-o, --outpath`: the path to the output directory where images and other stats will be saved. Default is the current directory.
-- `-a, --array`: the ehtim array or tarr file. If `--polarized` is used then this must be specified
+- `-a, --array`: the ehtim array or tarr file. If `--polarized` is used then this must be specified.
 - `--fovx`: the field of view in microarcseconds. Default is 200 μas.
 - `--fovy`: the field of view in microarcseconds. Default is fovx.
 - `-p, --psize`: the pixel size in microarcseconds. Default is 1 μas.
@@ -32,7 +32,7 @@ Fits BHEX data using Comrade and ring prior for the image.
             using an apriori flux estimate.
 - `-u, --uvmin`: the minimum uv distance in λ. Default is 0.2e9.
 - `-n, --nimgs`: the number of image posterior samples to generate. Default is 200.
-- `-g, --lg`: the log-gain amplitude prior standard deviation. Default is 0.2.
+- `--lg`: the log-gain amplitude prior standard deviation. Default is 0.2.
 - `--nsample`: the number of MCMC samples from the posterior. Default is 5_000.
 - `--nadapt`: the number of MCMC samples to use for adaptation. Default is 2_500.
 - `-f, --ferr`: the fractional error in the data. Default is 0.0.
@@ -43,7 +43,7 @@ Fits BHEX data using Comrade and ring prior for the image.
              quite hard to fit.
 - `--maxiters`: the maximum number of iterations for the optimizer. Default is 15_000.
 - `--ntrials`: the number of trials to run the optimizer. Default is 10.
-- `--polrep:` The polarization representation. The default of `PolExp` which uses a matrix exponential representation.
+- `--polrep`: The polarization representation. The default of PolExp which uses a matrix exponential representation.
 - `--refsite`: The reference site for EVPA calibration. Default is `ALMA`.
 
 # Flags
@@ -79,15 +79,15 @@ Fits BHEX data using Comrade and ring prior for the image.
     fovxrad = μas2rad(fovx)
     fovyrad = μas2rad(fovy)
     nx = ceil(Int, fovx / psize)
-    ny = ceil(Int, fovy / psize)  
+    ny = ceil(Int, fovy / psize)
     outpath = isempty(outpath) ? first(splitext(uvfile)) : joinpath(outpath, first(splitext(basename(uvfile))))
     @info "Fitting the data: $uvfile"
     @info "Outputing to $outpath"
     @info "Field of view: ($fovx, $fovy) μas"
     @info "number of pixels: ($nx, $ny)"
     @info "Image center offset: ($x, $y) μas"
-    @info "Adding $ferr fractional error to the data"   
-    ftots = parse.(Float64, split(ftot, ","))   
+    @info "Adding $ferr fractional error to the data"
+    ftots = parse.(Float64, split(ftot, ","))
     if length(ftots) == 1
         @info "Using a fixed flux of $(ftots[1])"
         ftotpr = ftots[1]
@@ -96,14 +96,14 @@ Fits BHEX data using Comrade and ring prior for the image.
         ftotpr = Uniform(ftots[1], ftots[2])
     else
         throw(ArgumentError("The --ftot flag should have either one or two values while it parsed $(ftots)"))
-    end 
+    end
     if order < 0
         @info "Using Matern kernel for stochastic model"
         base = Matern()
     else
         @info "Using Markov Random Field of order $order for stochastic model"
         base = GMRF
-    end 
+    end
     if polarized
         dp = Coherencies()
         @info "Using polarized model: $polrep"
@@ -118,8 +118,8 @@ Fits BHEX data using Comrade and ring prior for the image.
         @info "Only fitting the total intensity"
         dp = Visibilities()
         prep = TotalIntensity()
-    end 
-    if polarization
+    end
+    if polarized
         isempty(array) && throw(ArgumentError("If you are fitting polarized data, you must specify the array file"))
         obs = Pyehtim.load_uvfits_and_array(uvfile, array, polrep="circ")
     else
@@ -130,27 +130,27 @@ Fits BHEX data using Comrade and ring prior for the image.
         obsavg = scan_average(obs.flag_uvdist(uv_min=uvmin))
     else
         obsavg = obs.flag_uvdist(uv_min=uvmin)
-    end 
-    if !space
-        data = add_fractional_noise(extract_table(obsavg, Visibilities()), ferr)
-    else
+    end
+    if space
         @warn "We are flagging space baselines as requested by the `--space` flag"
-        data = add_fractional_noise(extract_table(obsavg.flag_sites(["space"]), Visibilities()), ferr)
-    end 
+        obsavg = obsavg.flag_sites(["space"])
+    end
+    data = add_fractional_noise(extract_table(obsavg, dp), ferr)
+    fix_nans_elevation!(data) # we need this because there are NaN's in the elevation
     x0 = μas2rad(x)
     y0 = μas2rad(y)
-    hdr = ComradeBase.MinimalHeader(string(data.config.source), 
-                                    data.config.ra, data.config.dec, 
-                                    data.config.mjd, data[:baseline].Fr[1] # assume all frequencies are the same
-                                  )
+    hdr = ComradeBase.MinimalHeader(string(data.config.source),
+        data.config.ra, data.config.dec,
+        data.config.mjd, data[:baseline].Fr[1] # assume all frequencies are the same
+    )
     if Threads.nthreads() > 1
         g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; executor=ThreadsEx(:dynamic), header=hdr)
     else
         g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; header=hdr)
-    end 
+    end
     beam = beamsize(data)
-    @info "Beam relative to pixel size: = $(beam/μas2rad(psize))"   
-    if model =="ringnojet"
+    @info "Beam relative to pixel size: = $(beam/μas2rad(psize))"
+    if model == "ringnojet"
         mod = DblRing()
         @info "Assuming the image is a ring"
     elseif model == "ring"
@@ -158,22 +158,22 @@ Fits BHEX data using Comrade and ring prior for the image.
         @info "Assuming the image is a ring with a background jet"
     elseif model == "isojet"
         @info "Assuming the image is a isotropic jet structure"
-        m = modify(Gaussian(), Stretch(beam/2))
+        m = modify(Gaussian(), Stretch(beam / 2))
         mimg = intensitymap(m, g)
         mod = MimgPlusBkgd(mimg ./ sum(mimg))
     elseif model == "jet"
-        @info "Assuming the image is an anisotropic jet structure"
-        m = modify(Gaussian(), Stretch(beam/2))
-        mimg = intensitymap(m, g)
-        imgmod = JetGauss(mimg./sum(mimg))
+            @info "Assuming the image is an anisotropic jet structure"
+            m = modify(Gaussian(), Stretch(beam / 2))
+            mimg = intensitymap(m, g)
+            imgmod = JetGauss(mimg ./ sum(mimg))
     else
-        throw(ArgumentError("Unknown model: $model please pick from \"ringnojet\", \"ring\", \"isojet\", \"jet\""))
-    end 
-    imgmod = ImagingModel(prep, mod, g, ftotpr; base, order)    
+          throw(ArgumentError("Unknown model: $model please pick from \"ringnojet\", \"ring\", \"isojet\", \"jet\""))
+    end
+    imgmod = ImagingModel(prep, mod, g, ftotpr; base, order)
     skpr = skyprior(imgmod; beamsize=beam)
     skym = SkyModel(imgmod, skpr, g)
     if polarized
-        intm = build_instrument_circular(;lgamp_sigma=lg, frcal)
+        intm = build_instrument_circular(; lgamp_sigma=lg, frcal)
     else
         intm = build_instrument(; lgamp_sigma=lg)
     end
