@@ -71,7 +71,17 @@ end
 
 @inline function make_image(::Type{<:PolExp}, ::Type{<:VLBIImagePriors.MarkovRandomField}, ftot, mimg, θ)
     (;a, b, c, d, σa, σb, σc, σd,) = θ
-    return make_pol2expimage(ftot, σa*a.params, σb*b.params, σc*c.params, σd*d.params, mimg)
+    δa = similar(a.params)
+    δb = similar(b.params)
+    δc = similar(c.params)
+    δd = similar(d.params)
+    @inbounds for i in eachindex(δa, δb, δc, δd)
+        δa[i] = σa*a.params[i]
+        δb[i] = σb*b.params[i]
+        δc[i] = σc*c.params[i]
+        δd[i] = σd*d.params[i]
+    end
+    return make_pol2expimage(ftot, δa, δb, δc, δd, mimg)
 end
 
 @inline function make_image(::Type{<:Poincare}, trf::VLBIImagePriors.StationaryMatern, ftot, mimg, θ)
@@ -132,10 +142,10 @@ function make_poincare(ftot, mimg, δ, p0, pσ, pδ, angparams)
 end
 
 function make_pol2expimage(ftot, a, b, c, d, mimg)
-    # this alloccated a whole new map so we can do things in place after
-    δ = PolExp2Map(a, b, c, d, axisdims(mimg))
+    # this allocated a whole new map so we can do things in place after
+    δ = VLBISkyModels.PolExp2Map!(a, b, c, d, axisdims(mimg))
     brast = baseimage(δ)
-    δI= sum(brast.I)
+    δI= Comrade._fastsum(brast.I)
     fr = zero(δI)
     @inbounds for i in eachindex(mimg, brast)
         brast[i] *= mimg[i]/δI
@@ -327,7 +337,7 @@ end
 
 
 struct DblRing end
-centerfix(::Type{<:DblRing}) = false
+centerfix(::Type{<:DblRing}) = true
 
 function make_mean(::DblRing, grid, θ)
     (; r0, ain, aout,) = θ
@@ -348,7 +358,7 @@ end
 
 
 struct DblRingWBkgd end
-centerfix(::Type{<:DblRingWBkgd}) = false
+centerfix(::Type{<:DblRingWBkgd}) = true
 
 function make_mean(::DblRingWBkgd, grid, θ)
     (; r0, ain, aout, fb) = θ
