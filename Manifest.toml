@@ -2,7 +2,7 @@
 
 julia_version = "1.10.9"
 manifest_format = "2.0"
-project_hash = "95aee38ce529fd1061e5bf8f7b56a7aac50955ed"
+project_hash = "c4a6a4c46d29504238ad079e3247d40fa5159ac3"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "e2478490447631aedba0823d4d7a80b2cc8cdb32"
@@ -299,6 +299,12 @@ git-tree-sha1 = "9cb23bbb1127eefb022b022481466c0f1127d430"
 uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
 version = "0.5.2"
 
+[[deps.CatIndices]]
+deps = ["CustomUnitRanges", "OffsetArrays"]
+git-tree-sha1 = "a0f80a09780eed9b1d106a1bf62041c2efc995bc"
+uuid = "aafaddc9-749c-510e-ac4f-586e18779b91"
+version = "0.2.2"
+
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra"]
 git-tree-sha1 = "1713c74e00545bfe14605d2a2be1712de8fbcb58"
@@ -366,6 +372,11 @@ git-tree-sha1 = "cda2cfaebb4be89c9084adaca7dd7333369715c5"
 uuid = "bbf7d656-a473-5ed7-a52c-81e309532950"
 version = "0.3.1"
 
+[[deps.CommonWorldInvalidations]]
+git-tree-sha1 = "ae52d1c52048455e85a387fbee9be553ec2b68d0"
+uuid = "f70d9fcc-98c5-4d4a-abd7-e4cdeebd8ca8"
+version = "1.0.0"
+
 [[deps.Comonicon]]
 deps = ["Configurations", "ExproniconLite", "Libdl", "Logging", "Markdown", "OrderedCollections", "PackageCompiler", "Pkg", "REPL", "Scratch", "TOML", "UUIDs"]
 git-tree-sha1 = "dedac9d02fdccd2948eda1d2ed6f0c2f9f9f00f4"
@@ -396,6 +407,11 @@ weakdeps = ["InverseFunctions"]
     [deps.CompositionsBase.extensions]
     CompositionsBaseInverseFunctionsExt = "InverseFunctions"
 
+[[deps.ComputationalResources]]
+git-tree-sha1 = "52cb3ec90e8a8bea0e62e275ba577ad0f74821f7"
+uuid = "ed09eef8-17a6-5b46-8889-db040fac31e3"
+version = "0.3.2"
+
 [[deps.Comrade]]
 deps = ["AbstractMCMC", "Accessors", "ArgCheck", "AstroTime", "ChainRulesCore", "ComradeBase", "DelimitedFiles", "DensityInterface", "DimensionalData", "Distributions", "DocStringExtensions", "EnzymeCore", "FillArrays", "ForwardDiff", "HypercubeTransform", "IntervalSets", "LinearAlgebra", "LogDensityProblems", "Measurements", "NamedTupleTools", "PaddedViews", "ParameterHandling", "PolarizedTypes", "PrettyTables", "Printf", "Random", "RecipesBase", "Reexport", "Serialization", "SparseArrays", "SpecialFunctions", "StaticArraysCore", "Statistics", "StatsBase", "StructArrays", "Tables", "TransformVariables", "VLBIImagePriors", "VLBILikelihoods", "VLBISkyModels"]
 path = "/home/ptiede/.julia/dev/Comrade"
@@ -422,7 +438,7 @@ version = "0.11.11"
 
 [[deps.ComradeBase]]
 deps = ["Accessors", "DimensionalData", "DocStringExtensions", "EnzymeCore", "PolarizedTypes", "PrecompileTools", "Reexport", "StaticArrays", "StructArrays"]
-git-tree-sha1 = "3774bc32b4eae9ef447450e3eea63d75bd86e096"
+path = "../../.julia/dev/ComradeBase"
 uuid = "6d8c423b-a35f-4ef1-850c-862fe21f82c4"
 version = "0.9.1"
 
@@ -490,6 +506,11 @@ version = "0.6.3"
 git-tree-sha1 = "249fe38abf76d48563e2f4556bebd215aa317e15"
 uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
 version = "4.1.1"
+
+[[deps.CustomUnitRanges]]
+git-tree-sha1 = "1a3f97f907e6dd8983b744d2642651bb162a3f7a"
+uuid = "dc8bdbbb-1ca9-579f-8c36-e416f6a65cce"
+version = "1.0.2"
 
 [[deps.DataAPI]]
 git-tree-sha1 = "abe83f3a2f1b857aac70ef8b269080af17764bbe"
@@ -755,6 +776,12 @@ deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers",
 git-tree-sha1 = "466d45dc38e15794ec7d5d63ec03d776a9aff36e"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "4.4.4+1"
+
+[[deps.FFTViews]]
+deps = ["CustomUnitRanges", "FFTW"]
+git-tree-sha1 = "cbdf14d1e8c7c8aacbe8b19862e0179fd08321c2"
+uuid = "4f61f5a4-77b1-5117-aa51-3ab5ef4ef0cd"
+version = "0.3.2"
 
 [[deps.FFTW]]
 deps = ["AbstractFFTs", "FFTW_jll", "LinearAlgebra", "MKL_jll", "Preferences", "Reexport"]
@@ -1034,6 +1061,11 @@ git-tree-sha1 = "68c173f4f449de5b438ee67ed0c9c748dc31a2ec"
 uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
 version = "0.3.28"
 
+[[deps.IfElse]]
+git-tree-sha1 = "debdd00ffef04665ccbb3e150747a77560e8fad1"
+uuid = "615f187c-cbe4-4ef1-ba3b-2fcf58d6d173"
+version = "0.1.1"
+
 [[deps.ImageAxes]]
 deps = ["AxisArrays", "ImageBase", "ImageCore", "Reexport", "SimpleTraits"]
 git-tree-sha1 = "e12629406c6c4442539436581041d372d69c55ba"
@@ -1051,6 +1083,12 @@ deps = ["ColorVectorSpace", "Colors", "FixedPointNumbers", "MappedArrays", "Mosa
 git-tree-sha1 = "8c193230235bbcee22c8066b0374f63b5683c2d3"
 uuid = "a09fc81d-aa75-5fe9-8630-4744c3626534"
 version = "0.10.5"
+
+[[deps.ImageFiltering]]
+deps = ["CatIndices", "ComputationalResources", "DataStructures", "FFTViews", "FFTW", "ImageBase", "ImageCore", "LinearAlgebra", "OffsetArrays", "PrecompileTools", "Reexport", "SparseArrays", "StaticArrays", "Statistics", "TiledIteration"]
+git-tree-sha1 = "33cb509839cc4011beb45bde2316e64344b0f92b"
+uuid = "6a3955dd-da59-5b1f-98d4-e7296123deb5"
+version = "0.7.9"
 
 [[deps.ImageIO]]
 deps = ["FileIO", "IndirectArrays", "JpegTurbo", "LazyModules", "Netpbm", "OpenEXR", "PNGFiles", "QOI", "Sixel", "TiffImages", "UUIDs", "WebP"]
@@ -1660,9 +1698,9 @@ version = "1.2.0"
 
 [[deps.ObjectFile]]
 deps = ["Reexport", "StructIO"]
-git-tree-sha1 = "dfcc26739b1ffa3ab51fb16f01ba7eb144f7bc50"
+git-tree-sha1 = "09b1fe6ff16e6587fa240c165347474322e77cf1"
 uuid = "d8793406-e978-5875-9003-1fc021f44a92"
-version = "0.4.3"
+version = "0.4.4"
 
 [[deps.Observables]]
 git-tree-sha1 = "7438a59546cf62428fc9d1bc94729146d37a7225"
@@ -2333,6 +2371,23 @@ git-tree-sha1 = "46e589465204cd0c08b4bd97385e4fa79a0c770c"
 uuid = "cae243ae-269e-4f55-b966-ac2d0dc13c15"
 version = "0.1.1"
 
+[[deps.Static]]
+deps = ["CommonWorldInvalidations", "IfElse", "PrecompileTools"]
+git-tree-sha1 = "f737d444cb0ad07e61b3c1bef8eb91203c321eff"
+uuid = "aedffcd0-7271-4cad-89d0-dc628f76c6d3"
+version = "1.2.0"
+
+[[deps.StaticArrayInterface]]
+deps = ["ArrayInterface", "Compat", "IfElse", "LinearAlgebra", "PrecompileTools", "Static"]
+git-tree-sha1 = "96381d50f1ce85f2663584c8e886a6ca97e60554"
+uuid = "0d7ed370-da01-4f52-bd93-41d350b8b718"
+version = "1.8.0"
+weakdeps = ["OffsetArrays", "StaticArrays"]
+
+    [deps.StaticArrayInterface.extensions]
+    StaticArrayInterfaceOffsetArraysExt = "OffsetArrays"
+    StaticArrayInterfaceStaticArraysExt = "StaticArrays"
+
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "PrecompileTools", "Random", "StaticArraysCore"]
 git-tree-sha1 = "0feb6b9031bd5c51f9072393eb5ab3efd31bf9e4"
@@ -2474,6 +2529,12 @@ git-tree-sha1 = "f21231b166166bebc73b99cea236071eb047525b"
 uuid = "731e570b-9d59-4bfa-96dc-6df516fadf69"
 version = "0.11.3"
 
+[[deps.TiledIteration]]
+deps = ["OffsetArrays", "StaticArrayInterface"]
+git-tree-sha1 = "1176cc31e867217b06928e2f140c90bd1bc88283"
+uuid = "06e1c1a7-607b-532d-9fad-de7d9aa2abac"
+version = "0.5.0"
+
 [[deps.TimerOutputs]]
 deps = ["ExprTools", "Printf"]
 git-tree-sha1 = "f57facfd1be61c42321765d3551b3df50f7e09f6"
@@ -2584,7 +2645,7 @@ version = "0.2.0"
 
 [[deps.VLBIImagePriors]]
 deps = ["AbstractFFTs", "ArgCheck", "Bessels", "ChainRulesCore", "ComradeBase", "DensityInterface", "Distributions", "DocStringExtensions", "EnzymeCore", "FFTW", "FillArrays", "HypercubeTransform", "LinearAlgebra", "NamedTupleTools", "Random", "Reexport", "Serialization", "SparseArrays", "SpecialFunctions", "StatsBase", "StatsFuns", "SuiteSparse", "TransformVariables"]
-git-tree-sha1 = "f5ceb3bffa37426956232de3fe2031c66f232dfa"
+path = "/home/ptiede/.julia/dev/VLBIImagePriors"
 uuid = "b1ba175b-8447-452c-b961-7db2d6f7a029"
 version = "0.9.6"
 weakdeps = ["Enzyme"]
@@ -2600,9 +2661,9 @@ version = "0.2.9"
 
 [[deps.VLBISkyModels]]
 deps = ["AbstractFFTs", "Accessors", "ArgCheck", "ChainRulesCore", "ComradeBase", "DelimitedFiles", "DimensionalData", "DocStringExtensions", "EnzymeCore", "FFTW", "FITSIO", "FillArrays", "ForwardDiff", "GridInterpolations", "LinearAlgebra", "NFFT", "NamedTupleTools", "PaddedViews", "PolarizedTypes", "Printf", "RecipesBase", "Reexport", "Serialization", "SpecialFunctions", "StaticArrays", "StructArrays"]
-git-tree-sha1 = "0d94a947dc8f047597904b377614d8fee018d7e9"
+path = "/home/ptiede/.julia/dev/VLBISkyModels"
 uuid = "d6343c73-7174-4e0f-bb64-562643efbeca"
-version = "0.6.11"
+version = "0.6.12"
 weakdeps = ["Makie"]
 
     [deps.VLBISkyModels.extensions]

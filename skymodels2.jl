@@ -239,7 +239,7 @@ function genimgprior(::Type{<:PolExp}, base::VLBIImagePriors.StationaryMatern, g
         :b => cprior,
         :c => cprior,
         :d => cprior,
-        :σa => truncated(Normal(0.0, 0.5); lower=0.0),
+        :σa => truncated(Normal(0.0, 1.0); lower=0.0),
         :σb => truncated(Normal(0.0, 0.5); lower=0.0),
         :σc => truncated(Normal(0.0, 0.5); lower=0.0),
         :σd => truncated(Normal(0.0, 0.1); lower=0.0),
