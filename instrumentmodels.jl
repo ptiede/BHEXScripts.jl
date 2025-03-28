@@ -28,7 +28,7 @@ function build_instrument(; lgamp_sigma=0.2, refant=SEFDReference(0.0))
   return InstrumentModel(G, intprior)
 end
 
-function build_instrument_circular(; frcal=false, lgamp_sigma=0.2)
+function build_instrument_circular(; frcal=false, lgamp_sigma=0.2, noleakage=false)
 
   G = JonesG(gainpol)
 

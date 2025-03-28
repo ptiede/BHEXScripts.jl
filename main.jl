@@ -55,6 +55,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--space`: Flag space baselines. Namely this will flag any ground to space baselines.
 - `--polarized`: Fit the polarized data. This requires the `--array` flag to be set.
 - `--frcal`: Flag that the data has been FR-cal'd (not the default in ngehtsim)
+- `--noleakage`: Assumes that the data doesn't have leakage.
 """
 @main function main(uvfile::String; outpath::String="",
     array::String="",
@@ -75,6 +76,7 @@ Fits BHEX data using Comrade and ring prior for the image.
     polrep::String="PolExp",
     frcal::Bool=false,
     ntrials::Int=10,
+    noleakage::Bool=false,
     order::Int=-1
 )
 
@@ -102,6 +104,12 @@ Fits BHEX data using Comrade and ring prior for the image.
         ftotpr = Uniform(ftots[1], ftots[2])
     else
         throw(ArgumentError("The --ftot flag should have either one or two values while it parsed $(ftots)"))
+    end
+
+    if polarized && noleakage
+        @warn("I am assuming that you want polarized fits but are not fitting leakage.\n"*
+              "This means I am not going to include feed rotations or gain ratios in the model\n"*
+              "Open an issue if this is not what you want")
     end
 
     if nsample <= 5000 && polarized
@@ -132,7 +140,7 @@ Fits BHEX data using Comrade and ring prior for the image.
         prep = TotalIntensity()
     end
     if polarized
-        isempty(array) && throw(ArgumentError("If you are fitting polarized data, you must specify the array file"))
+        (isempty(array) & !noleakage) && throw(ArgumentError("If you are fitting polarized data with leakage, you must specify the array file"))
         obs = Pyehtim.load_uvfits_and_array(uvfile, array, polrep="circ")
     else
         obs = ehtim.obsdata.load_uvfits(uvfile)
@@ -184,7 +192,7 @@ Fits BHEX data using Comrade and ring prior for the image.
     imgmod = ImagingModel(prep, mod, g, ftotpr; base, order)
     skpr = skyprior(imgmod; beamsize=beam)
     skym = SkyModel(imgmod, skpr, g)
-    if polarized
+    if polarized && !noleakage
         intm = build_instrument_circular(; lgamp_sigma=lg, frcal)
     else
         intm = build_instrument(; lgamp_sigma=lg)
