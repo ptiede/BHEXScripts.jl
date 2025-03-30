@@ -53,3 +53,19 @@ function build_instrument_circular(; frcal=false, lgamp_sigma=0.2, noleakage=fal
 
   return InstrumentModel(J, intprior)
 end
+
+function build_instrument_circularsimp(; lgamp_sigma=0.2)
+
+  G = JonesG(gainpol)
+  R = JonesR(; add_fr=false)
+
+  J = JonesSandwich(*, G, R)
+
+  intprior = (
+    lgR=ArrayPrior(IIDSitePrior(IntegSeg(), Normal(0.0, lgamp_sigma))),
+    gpR=ArrayPrior(IIDSitePrior(IntegSeg(), DiagonalVonMises(0.0, inv(π^2))); refant=SEFDReference(0.0), phase=true),
+  )
+
+  return InstrumentModel(J, intprior)
+end
+

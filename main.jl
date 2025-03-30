@@ -38,8 +38,9 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--nadapt`: the number of MCMC samples to use for adaptation. Default is 2_500.
 - `-f, --ferr`: the fractional error in the data. Default is 0.0.
 - `--order`: the order of the Markov Random Field. Default is -1 which uses the Matern kernel.
-- `--model`: The model to use for the prior image. Default is `ring` other are `isojet` and `jet`.
-             If `isojet` is used, the there is a core with a isotropic extended emission. If `jet` 
+- `--model`: The model to use for the prior image. Default is `ring` others are
+             `ringnojet`, `isojet` and `jet`. `ringnojet` is a ring with no constant background.
+             If `isojet` is used, the there is a core with a constant floor that is fit. If `jet` 
              is used, we fit the direction of the jet with a Gaussian. Note that `:jet` can be
              quite hard to fit.
 - `--maxiters`: the maximum number of iterations for the optimizer. Default is 15_000.
@@ -114,7 +115,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 
     if nsample <= 5000 && polarized
         @warn "5000 samples for polarized imaging is not enough please at least\n"* 
-              "double this and the number of adaption samples"
+              "double this and the number of adaptation samples"
     end
 
     if order < 0
@@ -139,9 +140,11 @@ Fits BHEX data using Comrade and ring prior for the image.
         dp = Visibilities()
         prep = TotalIntensity()
     end
-    if polarized
-        (isempty(array) & !noleakage) && throw(ArgumentError("If you are fitting polarized data with leakage, you must specify the array file"))
+    if polarized && !noleakage
+        (isempty(array)) && throw(ArgumentError("If you are fitting polarized data with leakage, you must specify the array file"))
         obs = Pyehtim.load_uvfits_and_array(uvfile, array, polrep="circ")
+    elseif polarized && noleakage
+        obs = ehtim.obsdata.load_uvfits(uvfile, polrep="circ")
     else
         obs = ehtim.obsdata.load_uvfits(uvfile)
     end
@@ -194,6 +197,8 @@ Fits BHEX data using Comrade and ring prior for the image.
     skym = SkyModel(imgmod, skpr, g)
     if polarized && !noleakage
         intm = build_instrument_circular(; lgamp_sigma=lg, frcal)
+    elseif polarized && noleakage
+        intm = build_instrument_circularsimp(; lgamp_sigma=lg)
     else
         intm = build_instrument(; lgamp_sigma=lg)
     end
