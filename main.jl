@@ -114,8 +114,8 @@ Fits BHEX data using Comrade and ring prior for the image.
     end
 
     if nsample <= 5000 && polarized
-        @warn "5000 samples for polarized imaging is not enough please at least\n"* 
-              "double this and the number of adaptation samples"
+        @warn "5000 samples for polarized imaging is likely not enough. Please at least\n"* 
+              "double this and the number of adaptation samples if you want a well sampled posterior."
     end
 
     if order < 0
