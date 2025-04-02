@@ -38,7 +38,7 @@ function ImagingModel(p::PolRep, mimg::M, grid, ftot; order=1, base=GMRF, center
 end
 
 @inline prepare_base(b::Type{<:VLBIImagePriors.MarkovRandomField}, grid, order) = b
-@inline prepare_base(::Matern, grid, order) = first(matern(size(grid)))
+@inline prepare_base(::Matern, grid, order) = first(matern(size(grid); executor=(Threads.nthreads() > 1 ? :dynamic : :serial)))
 
 function ImagingModel(p::PolRep, mimg::IntensityMap, ftot; order=1, base=GMRF)
     return ImagingModel(p, mimg./sum(mimg), axisdims(mimg), ftot; order=order, base=base)
@@ -112,6 +112,9 @@ end
 @inline function make_image(::Type{<:TotalIntensity}, trf::VLBIImagePriors.StationaryMatern, ftot, mimg, θ)
     (;c, σ, ρx, ρy, ρξ, ν) = θ
     δ = trf(c, (ρx, ρy), ρξ/2, ν)
+    for i in eachindex(δ)
+        δ[i] *= σ
+    end
     return make_stokesi(ftot, mimg, δ)
 end
 
@@ -337,7 +340,7 @@ end
 
 
 struct DblRing end
-centerfix(::Type{<:DblRing}) = true
+centerfix(::Type{<:DblRing}) = false
 
 function make_mean(::DblRing, grid, θ)
     (; r0, ain, aout,) = θ
@@ -358,7 +361,7 @@ end
 
 
 struct DblRingWBkgd end
-centerfix(::Type{<:DblRingWBkgd}) = true
+centerfix(::Type{<:DblRingWBkgd}) = false
 
 function make_mean(::DblRingWBkgd, grid, θ)
     (; r0, ain, aout, fb) = θ
