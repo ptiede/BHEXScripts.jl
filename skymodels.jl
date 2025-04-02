@@ -74,11 +74,11 @@ function _make_image(mimg::IntensityMap, ftot, σ, δ)
 end
 
 function (gmrf::JetMaternImage)(θ, meta)
-    (; ftot, c, σ, ρ, ν, fb) = θ
+    (; ftot, c, w, ρ, ν, fb) = θ
     fbn = fb/length(gmrf.mimg)
     mimg = similar(gmrf.mimg)
     mimg = (gmrf.mimg .+ fbn)./(1 + fb)
-    rast = _make_image(mimg, ftot, σ, gmrf.trf(c, ρ, ν))
+    rast = _make_image(mimg, ftot, w, gmrf.trf(c, ρ, ν))
     x0, y0 = centroid(rast)
     return modify(ContinuousImage(rast, DeltaPulse()), Shift(-x0, -y0))
 end

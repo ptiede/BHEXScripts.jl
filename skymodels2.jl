@@ -384,3 +384,39 @@ function genmeanprior(::DblRingWBkgd)
       :fb => Beta(1.0, 5.0)
     )
 end
+
+
+struct LyapunovRing end
+centerfix(::Type{<:LyapunovRing}) = false
+
+
+function make_mean(::LyapunovRing, grid, θ)
+    (; r0, w, α0, r1, γ, α1, f1, x1, y1) = θ
+
+    m0 = modify(RingTemplate(RadialJohnsonSU(w, α0), AzimuthalUniform()), Stretch(r0))
+    m1 = modify(RingTemplate(RadialJohnsonSU(w*exp(-γ), α1), AzimuthalUniform()), 
+                Stretch(r1), Shift(x1, y1))
+
+    mimg = intensitymap(m0 + f1*m1, grid)
+
+    pmimg = baseimage(mimg)
+    f = Comrade._fastsum(pmimg)
+    @inbounds for i in eachindex(pmimg)
+        pmimg[i] = pmimg[i] / f
+    end
+    return mimg
+end
+
+function genmeanprior(::LyapunovRing)
+    return Dict(
+      :r0 => Uniform(μas2rad(10.0), μas2rad(40.0)),
+      :w  => Uniform(0.0, 1.0),
+      :α0 => Normal(),
+      :r1 => Uniform(μas2rad(10.0), μas2rad(40.0)),
+      :γ   => Uniform(0.0, π),
+      :α1 => Normal(),
+      :f1 => Uniform(0.0, 1.0),
+      :x1 => Uniform(-μas2rad(10.0), μas2rad(10.0)),
+      :y1 => Uniform(-μas2rad(10.0), μas2rad(10.0))
+    )
+end

@@ -185,12 +185,15 @@ Fits BHEX data using Comrade and ring prior for the image.
         mimg = intensitymap(m, g)
         mod = MimgPlusBkgd(mimg ./ sum(mimg))
     elseif model == "jet"
-            @info "Assuming the image is an anisotropic jet structure"
-            m = modify(Gaussian(), Stretch(beam / 2))
-            mimg = intensitymap(m, g)
-            mod = JetGauss(mimg ./ sum(mimg))
+        @info "Assuming the image is an anisotropic jet structure"
+        m = modify(Gaussian(), Stretch(beam / 2))
+        mimg = intensitymap(m, g)
+        mod = JetGauss(mimg ./ sum(mimg))
+    elseif model == "lyapunov"
+        @info "Assuming the image is a Lyanpunov ring structure"
+        mod = LyapunovRing()
     else
-          throw(ArgumentError("Unknown model: $model please pick from \"ringnojet\", \"ring\", \"isojet\", \"jet\""))
+        throw(ArgumentError("Unknown model: $model please pick from \"ringnojet\", \"ring\", \"isojet\", \"jet\""))
     end
     imgmod = ImagingModel(prep, mod, g, ftotpr; base, order)
     skpr = skyprior(imgmod; beamsize=beam)
