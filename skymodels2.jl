@@ -110,8 +110,8 @@ end
 end
 
 @inline function make_image(::Type{<:TotalIntensity}, trf::VLBIImagePriors.StationaryMatern, ftot, mimg, θ)
-    (;c, σ, ρx, ρy, ρξ, ν) = θ
-    δ = trf(c, (ρx, ρy), ρξ/2, ν)
+    (;c, σ, ρ, ν) = θ
+    δ = trf(c, ρ, ν)
     for i in eachindex(δ)
         δ[i] *= σ
     end
@@ -276,9 +276,7 @@ function genimgprior(::Type{<:TotalIntensity}, base::VLBIImagePriors.StationaryM
     default = Dict(
         :c => cprior,
         :σ => truncated(Normal(0.0, 1.0); lower = 0.0),
-        :ρx => ρpr,
-        :ρy => ρpr,
-        :ρξ => DiagonalVonMises(0.0, inv(π^2)),
+        :ρ => ρpr,
         :ν => νpr
         )
     return default
@@ -391,13 +389,13 @@ centerfix(::Type{<:LyapunovRing}) = false
 
 
 function make_mean(::LyapunovRing, grid, θ)
-    (; r0, w, α0, r1, γ, α1, f1, x1, y1) = θ
+    (; r0, w, α0, r1, γ, α1, df1, x1, y1) = θ
 
     m0 = modify(RingTemplate(RadialJohnsonSU(w, α0), AzimuthalUniform()), Stretch(r0))
     m1 = modify(RingTemplate(RadialJohnsonSU(w*exp(-γ), α1), AzimuthalUniform()), 
                 Stretch(r1), Shift(x1, y1))
 
-    mimg = intensitymap(m0 + f1*m1, grid)
+    mimg = intensitymap(m0 + exp(-γ + df1)*m1, grid)
 
     pmimg = baseimage(mimg)
     f = Comrade._fastsum(pmimg)
@@ -409,14 +407,14 @@ end
 
 function genmeanprior(::LyapunovRing)
     return Dict(
-      :r0 => Uniform(μas2rad(10.0), μas2rad(40.0)),
-      :w  => Uniform(0.0, 1.0),
+      :r0 => Uniform(μas2rad(10.0), μas2rad(30.0)),
+      :w  => Uniform(0.05, 1.0),
       :α0 => Normal(),
-      :r1 => Uniform(μas2rad(10.0), μas2rad(40.0)),
+      :r1 => Uniform(μas2rad(10.0), μas2rad(30.0)),
       :γ   => Uniform(0.0, π),
       :α1 => Normal(),
-      :f1 => Uniform(0.0, 1.0),
-      :x1 => Uniform(-μas2rad(10.0), μas2rad(10.0)),
-      :y1 => Uniform(-μas2rad(10.0), μas2rad(10.0))
+      :df1 => Normal(0.0, 0.2),
+      :x1 => Uniform(-μas2rad(6.0), μas2rad(6.0)),
+      :y1 => Uniform(-μas2rad(6.0), μas2rad(6.0))
     )
 end
