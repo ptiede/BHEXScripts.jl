@@ -31,7 +31,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--ftot`: The total flux. Can either we two numbers, i.e. 0.1, 2.5 which mean it fits the
             total flux within that range, or a single number which means it fixes the total flux
             using an apriori flux estimate.
-- `-u, --uvmin`: the minimum uv distance in λ. Default is 0.2e9.
+- `-u, --uvmin`: the minimum uv distance in λ. Default is 0.0e9.
 - `-n, --nimgs`: the number of image posterior samples to generate. Default is 200.
 - `--lg`: the log-gain amplitude prior standard deviation. Default is 0.2.
 - `--nsample`: the number of MCMC samples from the posterior. Default is 5_000.
@@ -206,7 +206,7 @@ Fits BHEX data using Comrade and ring prior for the image.
         imgmod = ImagingModel(prep, mod, g, ftotpr; base, order, center=false)
     end
     skpr = skyprior(imgmod; beamsize=beam)
-    skym = SkyModel(imgmod, skpr, g)
+    skym = SkyModel(imgmod, skpr, g; algorithm=FINUFFTAlg(;threads=1))
 
     nogains && polarized && throw(ArgumentError("--nogains flag with polarized imaging if not surported currently."))
 

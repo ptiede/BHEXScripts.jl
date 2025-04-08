@@ -56,9 +56,9 @@ function (m::ImagingModel{P})(θ, meta) where {P}
     pmap = make_image(P, m.base, fimg, mimg, θ)
     if center(m)
         x0, y0 = fast_centroid(pmap)
-        ms = shifted(ContinuousImage(pmap, BSplinePulse{3}()), -x0, -y0)
+        ms = modify(ContinuousImage(pmap, BSplinePulse{3}()), Shift(-x0, -y0), Renormalize(fimg))
     else
-        ms = ContinuousImage(pmap, BSplinePulse{3}())
+        ms = modify(ContinuousImage(pmap, BSplinePulse{3}()), Renormalize(fimg))
     end
 
     return ms
@@ -431,7 +431,45 @@ function genmeanprior(::LyapunovRing)
         :γ => Uniform(0.0, π),
         :α1 => Normal(),
         :df1 => Normal(0.0, 0.2),
-        :x1 => Uniform(-μas2rad(6.0), μas2rad(6.0)),
-        :y1 => Uniform(-μas2rad(6.0), μas2rad(6.0))
+      :x1 => Uniform(-μas2rad(6.0), μas2rad(6.0)),
+      :y1 => Uniform(-μas2rad(6.0), μas2rad(6.0))
     )
+end
+
+
+struct LyapunovDblRing end
+centerfix(::Type{<:LyapunovDblRing}) = false
+
+
+function make_mean(::LyapunovDblRing, grid, θ)
+    (; r0, w, α0, r1, γ, α1, df1, x1, y1) = θ
+
+    m0 = modify(RingTemplate(RadialJohnsonSU(w, α0), AzimuthalUniform()), Stretch(r0))
+    m1 = modify(RingTemplate(RadialJohnsonSU(w*exp(-γ), α1), AzimuthalUniform()), 
+                Stretch(r1), Shift(x1, y1))
+
+    mimg0 = intensitymap(m0, grid)
+    mimg1 = intensitymap(m1, grid)
+
+    pmimg = baseimage(mimg0)
+    f0 = Comrade._fastsum(pmimg)
+    f1 = Comrade._fastsum(baseimage(mimg1))
+    @inbounds for i in eachindex(pmimg)
+        pmimg[i] = (pmimg[i] / f0 + exp(-γ + df1) * mimg1[i] / f1)/(1 + exp(-γ + df1))
+    end
+    return mimg0
+end
+
+function genmeanprior(::LyapunovDblRing)
+    return Dict(
+        :r0 => Uniform(μas2rad(10.0), μas2rad(30.0)),
+        :w  => Uniform(0.05, 1.0),
+        :α0 => Normal(-1.0, 1.0),
+        :r1 => Uniform(μas2rad(10.0), μas2rad(30.0)),
+        :γ   => Uniform(0.0, 2π),
+        :α1 => Normal(-1.0, 1.0),
+        :df1 => Normal(0.0, 0.2),
+          :x1 => Uniform(-μas2rad(6.0), μas2rad(6.0)),
+          :y1 => Uniform(-μas2rad(6.0), μas2rad(6.0))
+        )
 end

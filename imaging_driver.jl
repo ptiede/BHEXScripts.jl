@@ -14,8 +14,8 @@ using Plots
 using Serialization
 using BenchmarkTools
 using LinearAlgebra
+using FINUFFT
 include(joinpath(@__DIR__, "utils.jl"))
-include(joinpath(@__DIR__, "skymodels.jl"))
 include(joinpath(@__DIR__, "skymodels2.jl"))
 include(joinpath(@__DIR__, "instrumentmodels.jl"))
 Enzyme.EnzymeRules.inactive_type(::Type{<:Comrade.EHTObservationTable}) = true
