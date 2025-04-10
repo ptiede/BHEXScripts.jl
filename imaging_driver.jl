@@ -100,7 +100,8 @@ function comrade_imager(data, outbase, skym, intm; maxiters=15_000, ntrials=10,
             map(k, v) do ki, vi
                 gtp = Comrade.caltable(vi)
                 CSV.write(out*"_ctable_$ki.csv", gtp)
-                fig = Plots.plot(gtp, layout=(3, 4), size=(800, 600))
+                ly = ceil(Int, length(sites(data))/4)
+                fig = Plots.plot(gtp, layout=(ly, 4), size=(800, 600))
                 savefig(fig, out*"_ctable_$ki.png")
             end
         end
