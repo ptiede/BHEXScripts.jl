@@ -8,7 +8,7 @@ include(joinpath(@__DIR__, "imaging_driver.jl"))
 LinearAlgebra.BLAS.set_num_threads(1)
 if Threads.nthreads() > 1
     VLBISkyModels.NFFT._use_threads[] = false
-    VLBISkyModels.FFTW.set_num_threads(Threads.nthreads())
+    VLBISkyModels.FFTW.set_num_threads(1)
 end
 
 
@@ -57,6 +57,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--polarized`: Fit the polarized data. This requires the `--array` flag to be set.
 - `--frcal`: Flag that the data has been FR-cal'd (not the default in ngehtsim)
 - `--noleakage`: Assumes that the data doesn't have leakage.
+- `--nogains`: Assumes that the instrument is perfect and does not have any gains.  
 """
 @main function main(uvfile::String; outpath::String="",
     array::String="",
@@ -78,6 +79,7 @@ Fits BHEX data using Comrade and ring prior for the image.
     frcal::Bool=false,
     ntrials::Int=10,
     noleakage::Bool=false,
+    nogains::Bool=false,
     order::Int=-1
 )
 
@@ -108,13 +110,13 @@ Fits BHEX data using Comrade and ring prior for the image.
     end
 
     if polarized && noleakage
-        @warn("I am assuming that you want polarized fits but are not fitting leakage.\n"*
-              "This means I am not going to include feed rotations or gain ratios in the model\n"*
+        @warn("I am assuming that you want polarized fits but are not fitting leakage.\n" *
+              "This means I am not going to include feed rotations or gain ratios in the model\n" *
               "Open an issue if this is not what you want")
     end
 
     if nsample <= 5000 && polarized
-        @warn "5000 samples for polarized imaging is likely not enough. Please at least\n"* 
+        @warn "5000 samples for polarized imaging is likely not enough. Please at least\n" *
               "double this and the number of adaptation samples if you want a well sampled posterior."
     end
 
@@ -192,19 +194,35 @@ Fits BHEX data using Comrade and ring prior for the image.
     elseif model == "lyapunov"
         @info "Assuming the image is a Lyanpunov ring structure"
         mod = LyapunovRing()
+    elseif model == "flat"
+        @info "No mean image"
+        mod = Flat(g)
     else
         throw(ArgumentError("Unknown model: $model please pick from \"ringnojet\", \"ring\", \"isojet\", \"jet\""))
     end
-    imgmod = ImagingModel(prep, mod, g, ftotpr; base, order)
+    if !nogains
+        imgmod = ImagingModel(prep, mod, g, ftotpr; base, order)
+    else
+        imgmod = ImagingModel(prep, mod, g, ftotpr; base, order, center=false)
+    end
     skpr = skyprior(imgmod; beamsize=beam)
     skym = SkyModel(imgmod, skpr, g)
-    if polarized && !noleakage
-        intm = build_instrument_circular(; lgamp_sigma=lg, frcal)
-    elseif polarized && noleakage
-        intm = build_instrument_circularsimp(; lgamp_sigma=lg)
+
+    nogains && polarized && throw(ArgumentError("--nogains flag with polarized imaging if not surported currently."))
+
+    if !nogains
+        if polarized && !noleakage
+            intm = build_instrument_circular(; lgamp_sigma=lg, frcal)
+        elseif polarized && noleakage
+            intm = build_instrument_circularsimp(; lgamp_sigma=lg)
+        else
+            intm = build_instrument(; lgamp_sigma=lg)
+        end
     else
-        intm = build_instrument(; lgamp_sigma=lg)
+        @info "You are assuming you have a perfect instrument"
+        intm = Comrade.IdealInstrumentModel()
     end
+
     comrade_imager(
         data, outpath, skym, intm;
         nsample, nadapt,

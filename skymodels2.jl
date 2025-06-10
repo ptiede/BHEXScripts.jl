@@ -22,10 +22,10 @@ function fast_centroid(img::IntensityMap{<:Real,2})
     dp = domainpoints(img)
     fs = Comrade._fastsum(img)
     @inbounds for i in CartesianIndices(img)
-        x0 += dp[i].X*img[i]
-        y0 += dp[i].Y*img[i]
+        x0 += dp[i].X * img[i]
+        y0 += dp[i].Y * img[i]
     end
-    return x0/fs, y0/fs
+    return x0 / fs, y0 / fs
 end
 
 fast_centroid(img::IntensityMap{<:StokesParams}) = fast_centroid(stokes(img, :I))
@@ -37,22 +37,22 @@ function ImagingModel(p::PolRep, mimg::M, grid, ftot; order=1, base=GMRF, center
     return ImagingModel{typeof(p),M,typeof(grid),typeof(ftot),bt,center}(mimg, grid, ftot, b, order)
 end
 
-@inline prepare_base(b::Type{<:VLBIImagePriors.MarkovRandomField}, grid, order) = b
-@inline prepare_base(::Matern, grid, order) = first(matern(size(grid); executor=(Threads.nthreads() > 1 ? :dynamic : :serial)))
+@inline prepare_base(::Type{<:VLBIImagePriors.MarkovRandomField}, grid, order) = standardize(MarkovRandomField(grid, order))
+@inline prepare_base(::Matern, grid, order) = first(matern(size(grid); executor=ThreadsEx()))
 
 function ImagingModel(p::PolRep, mimg::IntensityMap, ftot; order=1, base=GMRF)
-    return ImagingModel(p, mimg./sum(mimg), axisdims(mimg), ftot; order=order, base=base)
+    return ImagingModel(p, mimg ./ sum(mimg), axisdims(mimg), ftot; order=order, base=base)
 end
 
-@inline center(::ImagingModel{P, M, G, F, B, C}) where {P, M, G, F, B, C} = C
+@inline center(::ImagingModel{P,M,G,F,B,C}) where {P,M,G,F,B,C} = C
 
-getftot(m::ImagingModel{P, M, G, <:Real}, _)   where {P, M, G} = m.ftot
-getftot(::ImagingModel{P, M, G}, θ) where {P, M, G} = θ.ftot
+getftot(m::ImagingModel{P,M,G,<:Real}, _) where {P,M,G} = m.ftot
+getftot(::ImagingModel{P,M,G}, θ) where {P,M,G} = θ.ftot
 
 function (m::ImagingModel{P})(θ, meta) where {P}
     mimg = make_mean(m.mimg, m.grid, θ)
     fimg = getftot(m, θ)
-    
+
     pmap = make_image(P, m.base, fimg, mimg, θ)
     if center(m)
         x0, y0 = fast_centroid(pmap)
@@ -65,29 +65,29 @@ function (m::ImagingModel{P})(θ, meta) where {P}
 end
 
 @inline function make_image(::Type{<:Poincare}, ::Type{<:VLBIImagePriors.MarkovRandomField}, ftot, mimg, θ)
-    (;c, σ, p, p0, pσ, angparams) = θ
-    return make_poincare(ftot, mimg, σ.*c.params, p0, pσ, p.params, angparams)
+    (; c, σ, p, p0, pσ, angparams) = θ
+    return make_poincare(ftot, mimg, σ .* c.params, p0, pσ, p.params, angparams)
 end
 
 @inline function make_image(::Type{<:PolExp}, ::Type{<:VLBIImagePriors.MarkovRandomField}, ftot, mimg, θ)
-    (;a, b, c, d, σa, σb, σc, σd,) = θ
+    (; a, b, c, d, σa, σb, σc, σd,) = θ
     δa = similar(a.params)
     δb = similar(b.params)
     δc = similar(c.params)
     δd = similar(d.params)
     @inbounds for i in eachindex(δa, δb, δc, δd)
-        δa[i] = σa*a.params[i]
-        δb[i] = σb*b.params[i]
-        δc[i] = σc*c.params[i]
-        δd[i] = σd*d.params[i]
+        δa[i] = σa * a.params[i]
+        δb[i] = σb * b.params[i]
+        δc[i] = σc * c.params[i]
+        δd[i] = σd * d.params[i]
     end
     return make_pol2expimage(ftot, δa, δb, δc, δd, mimg)
 end
 
 @inline function make_image(::Type{<:Poincare}, trf::VLBIImagePriors.StationaryMatern, ftot, mimg, θ)
-    (;c, σ, ρ, ν, p, p0, pσ, pν, pρ, angparams) = θ
+    (; c, σ, ρ, ν, p, p0, pσ, pν, pρ, angparams) = θ
     δ = trf(c, ρ, ν)
-    pδ= trf(p, pρ, pν)
+    pδ = trf(p, pρ, pν)
     for i in eachindex(δ)
         δ[i] *= σ
     end
@@ -95,7 +95,7 @@ end
 end
 
 @inline function make_image(::Type{<:PolExp}, trf::VLBIImagePriors.StationaryMatern, ftot, mimg, θ)
-    (;a, b, c, d, ρa, ρb, ρc, ρd, νa, νb, νc, νd, σa, σb, σc, σd,) = θ
+    (; a, b, c, d, ρa, ρb, ρc, ρd, νa, νb, νc, νd, σa, σb, σc, σd,) = θ
     δa = trf(a, ρa, νa)
     δb = trf(b, ρb, νb)
     δc = trf(c, ρc, νc)
@@ -105,12 +105,12 @@ end
         δb[i] *= σb
         δc[i] *= σc
         δd[i] *= σd
-    end 
+    end
     return make_pol2expimage(ftot, δa, δb, δc, δd, mimg)
 end
 
 @inline function make_image(::Type{<:TotalIntensity}, trf::VLBIImagePriors.StationaryMatern, ftot, mimg, θ)
-    (;c, σ, ρ, ν) = θ
+    (; c, σ, ρ, ν) = θ
     δ = trf(c, ρ, ν)
     for i in eachindex(δ)
         δ[i] *= σ
@@ -118,8 +118,8 @@ end
     return make_stokesi(ftot, mimg, δ)
 end
 
-@inline function make_image(::Type{<:TotalIntensity}, ::Type{<:VLBIImagePriors.MarkovRandomField}, ftot, mimg, θ) 
-    make_stokesi(ftot, mimg, θ.σ.*θ.c.params)
+@inline function make_image(::Type{<:TotalIntensity}, ::Type{<:VLBIImagePriors.MarkovRandomField}, ftot, mimg, θ)
+    make_stokesi(ftot, mimg, θ.σ .* θ.c.params)
 end
 
 @inline function make_stokesi(ftot, mimg, δ)
@@ -139,7 +139,7 @@ function make_poincare(ftot, mimg, δ, p0, pσ, pδ, angparams)
     for i in eachindex(pstokesi)
         pstokesi[i] *= ftot
     end
-    ptotim  = logistic.(p0 .+ pσ.*pδ)
+    ptotim = logistic.(p0 .+ pσ .* pδ)
     pmap = PoincareSphere2Map(stokesi, ptotim, angparams)
     return pmap
 end
@@ -148,17 +148,17 @@ function make_pol2expimage(ftot, a, b, c, d, mimg)
     # this allocated a whole new map so we can do things in place after
     δ = VLBISkyModels.PolExp2Map!(a, b, c, d, axisdims(mimg))
     brast = baseimage(δ)
-    δI= Comrade._fastsum(brast.I)
+    δI = Comrade._fastsum(brast.I)
     fr = zero(δI)
     @inbounds for i in eachindex(mimg, brast)
-        brast[i] *= mimg[i]/δI
+        brast[i] *= mimg[i] / δI
         fr += brast[i].I
     end
 
     for i in eachindex(brast)
-        brast[i] *= ftot/fr
+        brast[i] *= ftot / fr
     end
-    pmap = IntensityMap(brast, axisdims(mimg)) 
+    pmap = IntensityMap(brast, axisdims(mimg))
     return pmap
 end
 
@@ -186,12 +186,12 @@ function genimgprior(::Type{<:Poincare}, base::Type{<:VLBIImagePriors.MarkovRand
     cprior = corr_image_prior(grid, beamsize; base=base, order=order, lower=4.0)
     default = Dict(
         :c => cprior,
-        :σ => truncated(Normal(0.0, 0.5); lower = 0.0),
+        :σ => truncated(Normal(0.0, 0.5); lower=0.0),
         :p => cprior,
-        :p0=> Normal(-1.0, 2.0),
-        :pσ=> truncated(Normal(0.0, 0.5); lower = 0.0),
+        :p0 => Normal(-1.0, 2.0),
+        :pσ => truncated(Normal(0.0, 0.5); lower=0.0),
         :angparams => ImageSphericalUniform(size(cprior.priormap.cache)...)
-        )
+    )
     return default
 end
 
@@ -206,36 +206,36 @@ function genimgprior(::Type{<:PolExp}, base::Type{<:VLBIImagePriors.MarkovRandom
         :σb => truncated(Normal(0.0, 0.5); lower=0.0),
         :σc => truncated(Normal(0.0, 0.5); lower=0.0),
         :σd => truncated(Normal(0.0, 0.05); lower=0.0),
-        )
+    )
     return default
 end
 
 function genimgprior(::Type{<:Poincare}, base::VLBIImagePriors.StationaryMatern, grid, beamsize, order)
-    bs = beamsize/step(grid.XL)
+    bs = beamsize / step(grid.XL)
     cprior = VLBIImagePriors.std_dist(base)
-    ρpr = truncated(InverseGamma(1.0, -log(0.1)*bs); lower = 4.0, upper=2*max(size(grid)...))
-    νpr = truncated(InverseGamma(5.0, 9.0); lower = 0.1)
+    ρpr = truncated(InverseGamma(1.0, -log(0.1) * bs); lower=4.0, upper=2 * max(size(grid)...))
+    νpr = truncated(InverseGamma(5.0, 9.0); lower=0.1)
 
     default = Dict(
-        :c  => cprior,
-        :σ  => truncated(Normal(0.0, 0.5); lower = 0.0),
-        :ρ  => ρpr,
-        :ν  => νpr,
-        :p  => cprior,
+        :c => cprior,
+        :σ => truncated(Normal(0.0, 0.5); lower=0.0),
+        :ρ => ρpr,
+        :ν => νpr,
+        :p => cprior,
         :ρp => ρpr,
-        :νp => νpr, 
+        :νp => νpr,
         :p0 => Normal(-1.0, 2.0),
-        :pσ => truncated(Normal(0.0, 0.5); lower = 0.0),
+        :pσ => truncated(Normal(0.0, 0.5); lower=0.0),
         :angparams => ImageSphericalUniform(size(cprior.priormap.cache)...)
-        )
+    )
     return default
 end
 
 function genimgprior(::Type{<:PolExp}, base::VLBIImagePriors.StationaryMatern, grid, beamsize, order)
-    bs = beamsize/step(grid.X)
+    bs = beamsize / step(grid.X)
     cprior = VLBIImagePriors.std_dist(base)
-    ρpr = truncated(InverseGamma(1.0, -log(0.1)*bs); lower = 4.0, upper=2*max(size(grid)...))
-    νpr = truncated(InverseGamma(5.0, 9.0); lower = 0.1)
+    ρpr = truncated(InverseGamma(1.0, -log(0.1) * bs); lower=4.0, upper=2 * max(size(grid)...))
+    νpr = truncated(InverseGamma(5.0, 9.0); lower=0.1)
 
     default = Dict(
         :a => cprior,
@@ -246,15 +246,15 @@ function genimgprior(::Type{<:PolExp}, base::VLBIImagePriors.StationaryMatern, g
         :σb => truncated(Normal(0.0, 0.5); lower=0.0),
         :σc => truncated(Normal(0.0, 0.5); lower=0.0),
         :σd => truncated(Normal(0.0, 0.1); lower=0.0),
-        :ρa    => ρpr,
-        :νa    => νpr, 
-        :ρb    => ρpr,
-        :νb    => νpr,
-        :ρc    => ρpr,
-        :νc    => νpr,
-        :ρd    => ρpr,
-        :νd    => νpr
-        )
+        :ρa => ρpr,
+        :νa => νpr,
+        :ρb => ρpr,
+        :νb => νpr,
+        :ρc => ρpr,
+        :νc => νpr,
+        :ρd => ρpr,
+        :νd => νpr
+    )
     return default
 end
 
@@ -262,23 +262,23 @@ function genimgprior(::Type{<:TotalIntensity}, base::Type{<:VLBIImagePriors.Mark
     cprior = corr_image_prior(grid, beamsize; base=base, order=order, lower=4.0)
     default = Dict(
         :c => cprior,
-        :σ => truncated(Normal(0.0, 0.5); lower = 0.0)
-        )
+        :σ => truncated(Normal(0.0, 0.5); lower=0.0)
+    )
     return default
 end
 
 function genimgprior(::Type{<:TotalIntensity}, base::VLBIImagePriors.StationaryMatern, grid, beamsize, order)
-    bs = beamsize/step(grid.X)
+    bs = beamsize / step(grid.X)
     cprior = VLBIImagePriors.std_dist(base)
-    ρpr = truncated(InverseGamma(1.0, -log(0.1)*bs); lower = 4.0, upper=2*max(size(grid)...))
-    νpr = truncated(InverseGamma(5.0, 9.0); lower = 0.1)
+    ρpr = truncated(InverseGamma(1.0, -log(0.1) * bs); lower=4.0, upper=2 * max(size(grid)...))
+    νpr = truncated(InverseGamma(5.0, 9.0); lower=0.1)
 
     default = Dict(
         :c => cprior,
-        :σ => truncated(Normal(0.0, 1.0); lower = 0.0),
+        :σ => truncated(Normal(0.0, 1.0); lower=0.0),
         :ρ => ρpr,
         :ν => νpr
-        )
+    )
     return default
 end
 
@@ -306,6 +306,23 @@ function genmeanprior(::MimgPlusBkgd)
     return Dict(:fb => Beta(1.0, 5.0))
 end
 
+struct Flat{M}
+    mimg::M
+    function Flat(grid)
+        mimg = IntensityMap(ones(eltype(grid), size(grid)), grid)
+        return new{typeof(mimg)}(mimg./sum(mimg))
+    end
+end
+
+function make_mean(mimg::Flat, grid, θ)
+    return mimg.mimg
+end
+
+function genmeanprior(::Flat)
+    return Dict()
+end
+
+
 struct JetGauss{M}
     core::M
 end
@@ -327,12 +344,12 @@ function genmeanprior(m::JetGauss)
     x0, y0 = phasecenter(m.core)
     dx, dy = pixelsizes(m.core)
     return Dict(
-      :r => Uniform(dx * 4, fovx / 3),
-      :τ => Uniform(0.0, 10.0),
-      :ξτ => DiagonalVonMises(0.0, inv(π^2)),
-      :x => Uniform(-fovx / 4 - x0, fovx / 4 - x0),
-      :y => Uniform(-fovy / 4 - y0, fovy / 4 - y0),
-      :fj => Beta(1.0, 5.0)
+        :r => Uniform(dx * 4, fovx / 3),
+        :τ => Uniform(0.0, 10.0),
+        :ξτ => DiagonalVonMises(0.0, inv(π^2)),
+        :x => Uniform(-fovx / 4 - x0, fovx / 4 - x0),
+        :y => Uniform(-fovy / 4 - y0, fovy / 4 - y0),
+        :fj => Beta(1.0, 5.0)
     )
 end
 
@@ -351,9 +368,9 @@ end
 
 function genmeanprior(::DblRing)
     return Dict(
-      :r0 => Uniform(μas2rad(10.0), μas2rad(40.0)),
-      :ain => Uniform(0.0, 6.0),
-      :aout => Uniform(1.0, 6.0),
+        :r0 => Uniform(μas2rad(10.0), μas2rad(40.0)),
+        :ain => Uniform(0.0, 6.0),
+        :aout => Uniform(1.0, 6.0),
     )
 end
 
@@ -376,10 +393,10 @@ end
 
 function genmeanprior(::DblRingWBkgd)
     return Dict(
-      :r0 => Uniform(μas2rad(10.0), μas2rad(40.0)),
-      :ain => Uniform(0.0, 6.0),
-      :aout => Uniform(1.0, 6.0),
-      :fb => Beta(1.0, 5.0)
+        :r0 => Uniform(μas2rad(10.0), μas2rad(40.0)),
+        :ain => Uniform(0.0, 6.0),
+        :aout => Uniform(1.0, 6.0),
+        :fb => Beta(1.0, 5.0)
     )
 end
 
@@ -392,10 +409,10 @@ function make_mean(::LyapunovRing, grid, θ)
     (; r0, w, α0, r1, γ, α1, df1, x1, y1) = θ
 
     m0 = modify(RingTemplate(RadialJohnsonSU(w, α0), AzimuthalUniform()), Stretch(r0))
-    m1 = modify(RingTemplate(RadialJohnsonSU(w*exp(-γ), α1), AzimuthalUniform()), 
-                Stretch(r1), Shift(x1, y1))
+    m1 = modify(RingTemplate(RadialJohnsonSU(w * exp(-γ), α1), AzimuthalUniform()),
+        Stretch(r1), Shift(x1, y1))
 
-    mimg = intensitymap(m0 + exp(-γ + df1)*m1, grid)
+    mimg = intensitymap(m0 + exp(-γ + df1) * m1, grid)
 
     pmimg = baseimage(mimg)
     f = Comrade._fastsum(pmimg)
@@ -407,14 +424,14 @@ end
 
 function genmeanprior(::LyapunovRing)
     return Dict(
-      :r0 => Uniform(μas2rad(10.0), μas2rad(30.0)),
-      :w  => Uniform(0.05, 1.0),
-      :α0 => Normal(),
-      :r1 => Uniform(μas2rad(10.0), μas2rad(30.0)),
-      :γ   => Uniform(0.0, π),
-      :α1 => Normal(),
-      :df1 => Normal(0.0, 0.2),
-      :x1 => Uniform(-μas2rad(6.0), μas2rad(6.0)),
-      :y1 => Uniform(-μas2rad(6.0), μas2rad(6.0))
+        :r0 => Uniform(μas2rad(10.0), μas2rad(30.0)),
+        :w => Uniform(0.05, 1.0),
+        :α0 => Normal(),
+        :r1 => Uniform(μas2rad(10.0), μas2rad(30.0)),
+        :γ => Uniform(0.0, π),
+        :α1 => Normal(),
+        :df1 => Normal(0.0, 0.2),
+        :x1 => Uniform(-μas2rad(6.0), μas2rad(6.0)),
+        :y1 => Uniform(-μas2rad(6.0), μas2rad(6.0))
     )
 end
