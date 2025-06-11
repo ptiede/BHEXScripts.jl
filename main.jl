@@ -16,6 +16,7 @@ end
 Fits BHEX data using Comrade and ring prior for the image.
 
 # Arguments
+
  - `uvfile::String`: the path to the uvfits file you want to fit
 
 # Options
@@ -38,11 +39,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--nadapt`: the number of MCMC samples to use for adaptation. Default is 2_500.
 - `-f, --ferr`: the fractional error in the data. Default is 0.0.
 - `--order`: the order of the Markov Random Field. Default is -1 which uses the Matern kernel.
-- `--model`: The model to use for the prior image. Default is `ring` others are
-             `ringnojet`, `isojet` and `jet`. `ringnojet` is a ring with no constant background.
-             If `isojet` is used, the there is a core with a constant floor that is fit. If `jet` 
-             is used, we fit the direction of the jet with a Gaussian. Note that `:jet` can be
-             quite hard to fit.
+- `--model`: The model to use for the prior image. Default is `ring` for others see below. 
 - `--maxiters`: the maximum number of iterations for the optimizer. Default is 15_000.
 - `--ntrials`: the number of trials to run the optimizer. Default is 10.
 - `--polrep`: The polarization representation. The default of PolExp which uses a matrix exponential representation.
@@ -57,7 +54,17 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--polarized`: Fit the polarized data. This requires the `--array` flag to be set.
 - `--frcal`: Flag that the data has been FR-cal'd (not the default in ngehtsim)
 - `--noleakage`: Assumes that the data doesn't have leakage.
-- `--nogains`: Assumes that the instrument is perfect and does not have any gains.  
+- `--nogains`: Assumes that the instrument is perfect and does not have any gains. 
+
+
+# Notes
+The details of the models are as follows:
+ - `ring` is a ring with a constant background.
+ - `ringnojet` is a ring with no constant background. 
+ - `isojet` is a core with a constant floor that is fit. 
+ - `jet` is fits the the jet with a asymmetric Gaussian. Note that `:jet` can be quite hard to fit. 
+ - `flat` is a flat image with no structure.
+
 """
 @main function main(uvfile::String; outpath::String="",
     array::String="",
