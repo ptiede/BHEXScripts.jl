@@ -50,6 +50,8 @@ The details of the models are as follows:
  - `isojet` is a core with a constant floor that is fit. 
  - `jet` is fits the the jet with a asymmetric Gaussian. Note that `:jet` can be quite hard to fit. 
  - `flat` is a flat image with no structure.
+- `--nogains`: Assumes that the instrument is perfect and does not have any gains. This is needed
+  to decide whether the image centroid is fixed at the origin.
 
 """
 @main function main(uvfile::String; outpath::String="",
@@ -64,7 +66,8 @@ The details of the models are as follows:
     space::Bool=false,
     polarized::Bool=false,
     polrep::String="PolExp",
-    order::Int=-1
+    order::Int=-1,
+    nogains::Bool=false
 )
 
     fovxrad = μas2rad(fovx)
@@ -98,7 +101,6 @@ The details of the models are as follows:
         base = GMRF
     end
     if polarized
-        dp = Coherencies()
         @info "Using polarized model: $polrep"
         if polrep == "PolExp"
             prep = PolExp()
@@ -109,16 +111,15 @@ The details of the models are as follows:
         end
     else
         @info "Only fitting the total intensity"
-        dp = Visibilities()
         prep = TotalIntensity()
     end
 
     obs = ehtim.obsdata.load_uvfits(uvfile)
     obs.add_scans()
     if scanavg
-        obsavg = scan_average(obs.flag_uvdist(uv_min=uvmin))
+        obsavg = scan_average(obs)
     else
-        obsavg = obs.flag_uvdist(uv_min=uvmin)
+        obsavg = obs
     end
     if space
         @warn "We are flagging space baselines as requested by the `--space` flag"
@@ -173,10 +174,16 @@ The details of the models are as follows:
 
     oskym, pr = Comrade.set_array(skym, arrayconfig(data))
 
+    if pr isa Comrade.NamedDist
+        npr = pr 
+    else
+        npr = Comrade.NamedDist(pr)
+    end
+
     imgout = joinpath(mkpath(joinpath(dirname(outpath), "images")), basename(outpath)*"_results")
     @info "Saving images to $imgout"
     for i in 1:nimgs
-        m = skymodel(oskym, rand(pr))
+        m = skymodel(oskym, rand(npr))
         img = intensitymap(m, g)
         Comrade.save_fits(imgout*"_draw$i.fits", img)
         p = imageviz(img)
