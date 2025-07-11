@@ -55,6 +55,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--frcal`: Flag that the data has been FR-cal'd (not the default in ngehtsim)
 - `--noleakage`: Assumes that the data doesn't have leakage.
 - `--nogains`: Assumes that the instrument is perfect and does not have any gains. 
+- `--fthreads`: The number of threads to use for the FINUFFT algorithm. Default is 1. For large data sets make this bigger.
 
 
 # Notes
@@ -87,7 +88,8 @@ The details of the models are as follows:
     ntrials::Int=10,
     noleakage::Bool=false,
     nogains::Bool=false,
-    order::Int=-1
+    order::Int=-1,
+    fthreads::Int=1
 )
 
     fovxrad = μas2rad(fovx)
@@ -213,7 +215,7 @@ The details of the models are as follows:
         imgmod = ImagingModel(prep, mod, g, ftotpr; base, order, center=false)
     end
     skpr = skyprior(imgmod; beamsize=beam)
-    skym = SkyModel(imgmod, skpr, g; algorithm=FINUFFTAlg(;threads=1))
+    skym = SkyModel(imgmod, skpr, g; algorithm=FINUFFTAlg(;threads=fthreads))
 
     nogains && polarized && throw(ArgumentError("--nogains flag with polarized imaging if not surported currently."))
 
