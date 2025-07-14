@@ -44,6 +44,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--ntrials`: the number of trials to run the optimizer. Default is 10.
 - `--polrep`: The polarization representation. The default of PolExp which uses a matrix exponential representation.
 - `--refsite`: The reference site for EVPA calibration. Default is `ALMA`.
+- `--fthreads`: The number of threads to use for the FINUFFT algorithm. Default is 1. For large data sets make this bigger.
 
 # Flags
 
@@ -55,7 +56,6 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--frcal`: Flag that the data has been FR-cal'd (not the default in ngehtsim)
 - `--noleakage`: Assumes that the data doesn't have leakage.
 - `--nogains`: Assumes that the instrument is perfect and does not have any gains. 
-- `--fthreads`: The number of threads to use for the FINUFFT algorithm. Default is 1. For large data sets make this bigger.
 
 
 # Notes
