@@ -158,7 +158,7 @@ function make_pol2expimage(ftot, a, b, c, d, mimg)
     δ = VLBISkyModels.PolExp2Map!(a, b, c, d, axisdims(mimg))
     brast = baseimage(δ)
     fI = Comrade._fastsum(brast.I)
-    fr = zero(δI)
+    fr = zero(fI)
     @inbounds for i in eachindex(mimg, brast)
         brast[i] *= mimg[i] / fI
         fr += brast[i].I
