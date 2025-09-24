@@ -5,11 +5,11 @@ using Comonicon
 using LinearAlgebra
 
 include(joinpath(@__DIR__, "imaging_driver.jl"))
-LinearAlgebra.BLAS.set_num_threads(1)
-if Threads.nthreads() > 1
-    VLBISkyModels.NFFT._use_threads[] = false
-    VLBISkyModels.FFTW.set_num_threads(1)
-end
+# LinearAlgebra.BLAS.set_num_threads(1)
+# if Threads.nthreads() > 1
+#     VLBISkyModels.NFFT._use_threads[] = false
+#     VLBISkyModels.FFTW.set_num_threads(1)
+# end
 
 
 """
@@ -56,6 +56,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--frcal`: Flag that the data has been FR-cal'd (not the default in ngehtsim)
 - `--noleakage`: Assumes that the data doesn't have leakage.
 - `--nogains`: Assumes that the instrument is perfect and does not have any gains. 
+- `--gauto`: Use the automatic gain model that fits for gain offsets and dispersion.
 
 
 # Notes
@@ -88,6 +89,7 @@ The details of the models are as follows:
     ntrials::Int=10,
     noleakage::Bool=false,
     nogains::Bool=false,
+    gauto::Bool=false,
     order::Int=-1,
     fthreads::Int=1
 )
@@ -224,8 +226,12 @@ The details of the models are as follows:
             intm = build_instrument_circular(; lgamp_sigma=lg, frcal)
         elseif polarized && noleakage
             intm = build_instrument_circularsimp(; lgamp_sigma=lg)
-        else
+        elseif !gauto
+            @info "Using the standard gain mode that assume IID gains with dispersion $lg"
             intm = build_instrument(; lgamp_sigma=lg)
+        else
+            @info "Using the automatic gain model that fits offsets and dispersion"
+            intm = build_instrument_auto(; lgamp_sigma=lg)
         end
     else
         @info "You are assuming you have a perfect instrument"
