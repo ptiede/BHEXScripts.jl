@@ -37,7 +37,7 @@ function ImagingModel(p::PolRep, mimg::M, grid, ftot; order=1, base=GMRF, center
 end
 
 @inline prepare_base(::Type{<:VLBIImagePriors.MarkovRandomField}, grid, order) = standardize(MarkovRandomFieldGraph(grid; order))
-@inline prepare_base(::Matern, grid, order) = first(matern(size(grid); executor=ThreadsEx()))
+@inline prepare_base(::Matern, grid, order) = first(matern(grid))
 
 function ImagingModel(p::PolRep, mimg::IntensityMap, ftot; order=1, base=GMRF)
     return ImagingModel(p, mimg ./ sum(mimg), axisdims(mimg), ftot; order=order, base=base)
@@ -57,7 +57,7 @@ function (m::ImagingModel{P})(θ, meta) where {P}
         x0, y0 = fast_centroid(pmap)
         ms = modify(ContinuousImage(pmap, DeltaPulse()), Shift(-x0, -y0))
     else
-        ms = modify(ContinuousImage(pmap, DeltaPulse()))
+        ms = ContinuousImage(pmap, DeltaPulse())
     end
 
     return ms
