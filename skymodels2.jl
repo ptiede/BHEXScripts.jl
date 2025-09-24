@@ -5,6 +5,13 @@ struct Poincare <: PolModel end
 struct PolExp <: PolModel end
 struct TotalIntensity <: PolRep end
 struct Matern end
+struct MarkovRF{N} end
+MarkovRF(n::Int) = MarkovRF{n}()
+
+struct SRF{PS, P}
+    ps::PS
+    plan::P
+end
 
 struct ImagingModel{P,M,G,F,B,C}
     mimg::M
@@ -37,7 +44,8 @@ function ImagingModel(p::PolRep, mimg::M, grid, ftot; order=1, base=GMRF, center
 end
 
 @inline prepare_base(::Type{<:VLBIImagePriors.MarkovRandomField}, grid, order) = standardize(MarkovRandomFieldGraph(grid; order))
-@inline prepare_base(::Matern, grid, order) = first(matern(size(grid); executor=ThreadsEx()))
+@inline prepare_base(::Matern, grid, order) = first(matern(size(grid); executor=executor(grid)))
+@inline prepare_base(ps::MarkovRF{N}, grid, order) where {N} = SRF(ps, StationaryRandomFieldPlan(grid))
 
 function ImagingModel(p::PolRep, mimg::IntensityMap, ftot; order=1, base=GMRF)
     return ImagingModel(p, mimg ./ sum(mimg), axisdims(mimg), ftot; order=order, base=base)
@@ -121,6 +129,17 @@ end
     end
     return make_stokesi(ftot, mimg, δ)
 end
+
+@inline function make_image(::Type{<:TotalIntensity}, trf::SRF{<:MarkovRF}, ftot, mimg, θ)
+    (; c, σ, ρs) = θ
+    ps = MarkovPS(ρs)
+    δ = genfield(StationaryRandomField(ps, trf.plan), c)
+    for i in eachindex(δ)
+        δ[i] *= σ
+    end
+    return make_stokesi(ftot, mimg, δ)
+end
+
 
 @inline function make_image(::Type{<:TotalIntensity}, t::VLBIImagePriors.NonCenteredMarkovTransform, ftot, mimg, θ)
     δ = centerdist(t, θ.c.hyperparams, θ.c.params)
@@ -284,6 +303,18 @@ function genimgprior(::Type{<:TotalIntensity}, base::VLBIImagePriors.NonCentered
     return default
 end
 
+function genimgprior(::Type{<:TotalIntensity}, base::SRF{<:MarkovRF{N}}, grid, beamsize, order) where {N}
+    bs = beamsize / step(grid.X)
+    cprior = VLBIImagePriors.std_dist(base.plan)
+    ρs = ntuple(Returns(Uniform(0.0, 3*max(size(grid)...))), N)
+    default = Dict(
+        :c => cprior,
+        :σ => truncated(Normal(0.0, 1.0); lower=0.0),
+        :ρs => ρs,
+    )
+    return default
+end
+
 
 function genimgprior(::Type{<:TotalIntensity}, base::VLBIImagePriors.StationaryMatern, grid, beamsize, order)
     bs = beamsize / step(grid.X)
@@ -412,8 +443,8 @@ end
 function genmeanprior(::DblRingWBkgd)
     return Dict(
         :r0 => Uniform(μas2rad(10.0), μas2rad(40.0)),
-        :ain => Uniform(0.0, 6.0),
-        :aout => Uniform(1.0, 6.0),
+        :ain => Uniform(0.0, 20.0),
+        :aout => Uniform(1.0, 20.0),
         :fb => Beta(1.0, 5.0)
     )
 end
