@@ -153,13 +153,13 @@ The details of the models are as follows:
             ny = ny2
         end
     elseif base isa GMRF
-        nx2 = nextprod((2,3,5,7), nx) - 1
-        ny2 = nextprod((2,3,5,7), ny) - 1
-        if (nx2 != nx) || (ny2 != ny)
+        nx2 = nextprod((2,3,5,7), nx+1)
+        ny2 = nextprod((2,3,5,7), ny+1)
+        if (nx2 != nx+1) || (ny2 != ny+1)
             @warn "You are using a $base stochastic model with an image size of ($nx, $ny) which is not optimal.\n" *
                   "I am changing the image size to ($nx2, $ny2) which is optimal for $base"
-            nx = nx2
-            ny = ny2
+            nx = nx2-1
+            ny = ny2-1
         end
     end
 
