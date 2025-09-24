@@ -44,7 +44,7 @@ function ImagingModel(p::PolRep, mimg::M, grid, ftot; order=1, base=GMRF, center
 end
 
 @inline prepare_base(::Type{<:VLBIImagePriors.MarkovRandomField}, grid, order) = standardize(MarkovRandomFieldGraph(grid; order))
-@inline prepare_base(::Matern, grid, order) = first(matern(size(grid); executor=executor(grid)))
+@inline prepare_base(::Matern, grid, order) = first(matern(grid))
 @inline prepare_base(ps::MarkovRF{N}, grid, order) where {N} = SRF(ps, StationaryRandomFieldPlan(grid))
 
 function ImagingModel(p::PolRep, mimg::IntensityMap, ftot; order=1, base=GMRF)
@@ -63,9 +63,9 @@ function (m::ImagingModel{P})(θ, meta) where {P}
     pmap = make_image(P, m.base, fimg, mimg, θ)
     if center(m)
         x0, y0 = fast_centroid(pmap)
-        ms = modify(ContinuousImage(pmap, DeltaPulse()), Shift(-x0, -y0), Renormalize(fimg))
+        ms = modify(ContinuousImage(pmap, DeltaPulse()), Shift(-x0, -y0))
     else
-        ms = modify(ContinuousImage(pmap, DeltaPulse()), Renormalize(fimg))
+        ms = ContinuousImage(pmap, DeltaPulse())
     end
 
     return ms
@@ -418,8 +418,8 @@ end
 function genmeanprior(::DblRing)
     return Dict(
         :r0 => Uniform(μas2rad(10.0), μas2rad(40.0)),
-        :ain => Uniform(0.0, 6.0),
-        :aout => Uniform(1.0, 6.0),
+        :ain => Uniform(0.0, 20.0),
+        :aout => Uniform(1.0, 20.0),
     )
 end
 
