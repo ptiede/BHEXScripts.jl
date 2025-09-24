@@ -387,8 +387,8 @@ end
 function genmeanprior(::DblRing)
     return Dict(
         :r0 => Uniform(μas2rad(10.0), μas2rad(40.0)),
-        :ain => Uniform(0.0, 6.0),
-        :aout => Uniform(1.0, 6.0),
+        :ain => Uniform(0.0, 20.0),
+        :aout => Uniform(1.0, 20.0),
     )
 end
 
@@ -412,8 +412,8 @@ end
 function genmeanprior(::DblRingWBkgd)
     return Dict(
         :r0 => Uniform(μas2rad(10.0), μas2rad(40.0)),
-        :ain => Uniform(0.0, 6.0),
-        :aout => Uniform(1.0, 6.0),
+        :ain => Uniform(0.0, 20.0),
+        :aout => Uniform(1.0, 20.0),
         :fb => Beta(1.0, 5.0)
     )
 end
