@@ -55,9 +55,9 @@ function (m::ImagingModel{P})(θ, meta) where {P}
     pmap = make_image(P, m.base, fimg, mimg, θ)
     if center(m)
         x0, y0 = fast_centroid(pmap)
-        ms = modify(ContinuousImage(pmap, DeltaPulse()), Shift(-x0, -y0), Renormalize(fimg))
+        ms = modify(ContinuousImage(pmap, DeltaPulse()), Shift(-x0, -y0))
     else
-        ms = modify(ContinuousImage(pmap, DeltaPulse()), Renormalize(fimg))
+        ms = modify(ContinuousImage(pmap, DeltaPulse()))
     end
 
     return ms
