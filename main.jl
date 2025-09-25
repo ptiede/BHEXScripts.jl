@@ -133,13 +133,13 @@ The details of the models are as follows:
     end
 
     if order < 0
-        @info "Using Matern kernel for the stochastic model"
+        @info "Using Matern kernel with circular b.c. for the stochastic model"
         base = Matern()
     elseif order == 0
-        @info "Using Markov Random Field of order 1,2,3 for the stochastic model"
+        @info "Using Markov Random Field expansion with circular b.c. of order 3 for the stochastic model"
         base = MarkovRF(3)
     else
-        @info "Using Markov Random Field of order $order for the stochastic model"
+        @info "Using Markov Random Field with Dirichlet b.c. of order $order for the stochastic model"
         base = GMRF
     end
 
