@@ -33,10 +33,18 @@ fast_centroid(img::IntensityMap{<:StokesParams}) = fast_centroid(stokes(img, :I)
 
 function ImagingModel(p::PolRep, mimg::M, grid, ftot; order=1, base=GMRF, center=centerfix(M)) where {M}
     b = prepare_base(base, grid, order)
-    return ImagingModel{typeof(p),M,typeof(grid),typeof(ftot),typeof(b),center}(mimg, grid, ftot, b, order)
+    bt = typeof(b) === UnionAll ? Type{b} : typeof(b)
+    return ImagingModel{typeof(p),M,typeof(grid),typeof(ftot),bt,center}(mimg, grid, ftot, b, order)
 end
 
-@inline prepare_base(::Type{<:VLBIImagePriors.MarkovRandomField}, grid, order) = standardize(MarkovRandomFieldGraph(grid; order))
+@inline function prepare_base(B::Type{<:VLBIImagePriors.MarkovRandomField}, grid, order) 
+    if order > 1
+        return standardize(MarkovRandomFieldGraph(grid; order))
+    else
+        return B
+    end
+end
+
 @inline prepare_base(::Matern, grid, order) = first(matern(size(grid); executor=ThreadsEx()))
 
 function ImagingModel(p::PolRep, mimg::IntensityMap, ftot; order=1, base=GMRF)
@@ -127,6 +135,10 @@ end
     σ = θ.σ
     δ .*= σ
     make_stokesi(ftot, mimg, δ)
+end
+
+@inline function make_image(::Type{<:TotalIntensity}, ::Type{<:VLBIImagePriors.MarkovRandomField}, ftot, mimg, θ)
+    return make_stokesi(ftot, mimg, θ.σ .* θ.c.params)
 end
 
 @inline function make_stokesi(ftot, mimg, δ)
@@ -268,6 +280,15 @@ function genimgprior(::Type{<:PolExp}, base::VLBIImagePriors.StationaryMatern, g
         :νc => νpr,
         :ρd => ρpr,
         :νd => νpr
+    )
+    return default
+end
+
+function genimgprior(::Type{<:TotalIntensity}, base::Type{<:VLBIImagePriors.MarkovRandomField}, grid, beamsize, order)
+    cprior = corr_image_prior(grid, beamsize; base = base, order = order, lower = 4.0)
+    default = Dict(
+        :c => cprior,
+        :σ => truncated(Normal(0.0, 0.5); lower = 0.0)
     )
     return default
 end

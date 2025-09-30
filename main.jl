@@ -5,10 +5,10 @@ using Comonicon
 using LinearAlgebra
 
 include(joinpath(@__DIR__, "imaging_driver.jl"))
-LinearAlgebra.BLAS.set_num_threads(1)
+# LinearAlgebra.BLAS.set_num_threads(1)
 if Threads.nthreads() > 1
     VLBISkyModels.NFFT._use_threads[] = false
-    VLBISkyModels.FFTW.set_num_threads(1)
+    VLBISkyModels.FFTW.set_num_threads(Threads.nthreads())
 end
 
 
