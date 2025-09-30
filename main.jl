@@ -3,12 +3,13 @@ Pkg.activate(@__DIR__);
 using Comonicon
 
 using LinearAlgebra
+using NonuniformFFTs
 
 include(joinpath(@__DIR__, "imaging_driver.jl"))
-# LinearAlgebra.BLAS.set_num_threads(1)
+LinearAlgebra.BLAS.set_num_threads(1)
 if Threads.nthreads() > 1
     VLBISkyModels.NFFT._use_threads[] = false
-    VLBISkyModels.FFTW.set_num_threads(Threads.nthreads())
+    VLBISkyModels.FFTW.set_num_threads(1)
 end
 
 
@@ -38,7 +39,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--nsample`: the number of MCMC samples from the posterior. Default is 5_000.
 - `--nadapt`: the number of MCMC samples to use for adaptation. Default is 2_500.
 - `-f, --ferr`: the fractional error in the data. Default is 0.0.
-- `--order`: the order of the Markov Random Field. Default is -1 which uses the Matern kernel.
+- `--order`: the order of the Markov Random Field. Default is -1 which uses the Matern kernel. 0 means that we fit a MRF with order 1,2,3.
 - `--model`: The model to use for the prior image. Default is `ring` for others see below. 
 - `--maxiters`: the maximum number of iterations for the optimizer. Default is 15_000.
 - `--ntrials`: the number of trials to run the optimizer. Default is 10.
@@ -56,6 +57,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--frcal`: Flag that the data has been FR-cal'd (not the default in ngehtsim)
 - `--noleakage`: Assumes that the data doesn't have leakage.
 - `--nogains`: Assumes that the instrument is perfect and does not have any gains. 
+- `--gauto`: Use the automatic gain model that fits for gain offsets and dispersion.
 
 
 # Notes
@@ -88,6 +90,7 @@ The details of the models are as follows:
     ntrials::Int=10,
     noleakage::Bool=false,
     nogains::Bool=false,
+    gauto::Bool=false,
     order::Int=-1,
     fthreads::Int=1
 )
@@ -130,12 +133,37 @@ The details of the models are as follows:
     end
 
     if order < 0
-        @info "Using Matern kernel for the stochastic model"
+        @info "Using Matern kernel with circular b.c. for the stochastic model"
         base = Matern()
+    elseif order == 0
+        @info "Using Markov Random Field expansion with circular b.c. of order 3 for the stochastic model"
+        base = MarkovRF(3)
     else
-        @info "Using Markov Random Field of order $order for the stochastic model"
+        @info "Using Markov Random Field with Dirichlet b.c. of order $order for the stochastic model"
         base = GMRF
     end
+
+    if base isa Matern || base isa MarkovRF
+        nx2 = nextprod((2,3,5,7), nx)
+        ny2 = nextprod((2,3,5,7), ny)
+        if (nx2 != nx) || (ny2 != ny)
+            @warn "You are using a $base stochastic model with an image size of ($nx, $ny) which is not optimal for perf.\n" *
+                  "I am changing the image size to ($nx2, $ny2) which is optimal for $base"
+            nx = nx2
+            ny = ny2
+        end
+    elseif base === GMRF
+        nx2 = nextprod((2,3,5,7), nx+1)
+        ny2 = nextprod((2,3,5,7), ny+1)
+        if (nx2 != nx+1) || (ny2 != ny+1)
+            @warn "You are using a $base stochastic model with an image size of ($nx, $ny) which is not optimal for perf.\n" *
+                  "I am changing the image size to ($(nx2-1), $(ny2-1)) which is optimal for $base"
+            nx = nx2-1
+            ny = ny2-1
+        end
+    end
+
+
     if polarized
         dp = Coherencies()
         @info "Using polarized model: $polrep"
@@ -178,7 +206,7 @@ The details of the models are as follows:
         data.config.mjd, data[:baseline].Fr[1] # assume all frequencies are the same
     )
     if Threads.nthreads() > 1
-        g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; posang, executor=ThreadsEx(:dynamic), header=hdr)
+        g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; posang, executor=ThreadsEx(), header=hdr)
     else
         g = imagepixels(fovxrad, fovyrad, nx, ny, x0, y0; posang, header=hdr)
     end
@@ -215,7 +243,7 @@ The details of the models are as follows:
         imgmod = ImagingModel(prep, mod, g, ftotpr; base, order, center=false)
     end
     skpr = skyprior(imgmod; beamsize=beam)
-    skym = SkyModel(imgmod, skpr, g; algorithm=FINUFFTAlg(;threads=fthreads))
+    skym = SkyModel(imgmod, skpr, g; algorithm=NonuniformFFTsAlg())
 
     nogains && polarized && throw(ArgumentError("--nogains flag with polarized imaging if not surported currently."))
 
@@ -224,8 +252,12 @@ The details of the models are as follows:
             intm = build_instrument_circular(; lgamp_sigma=lg, frcal)
         elseif polarized && noleakage
             intm = build_instrument_circularsimp(; lgamp_sigma=lg)
-        else
+        elseif !gauto
+            @info "Using the standard gain mode that assume IID gains with dispersion $lg"
             intm = build_instrument(; lgamp_sigma=lg)
+        else
+            @info "Using the automatic gain model that fits offsets and dispersion"
+            intm = build_instrument_auto(; lgamp_sigma=lg)
         end
     else
         @info "You are assuming you have a perfect instrument"

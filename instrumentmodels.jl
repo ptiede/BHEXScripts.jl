@@ -1,6 +1,11 @@
 
 @inline fgain(x) = @fastmath exp(x.lg + 1im * x.gp)
 
+@inline function fgainh(x)
+  lga = x.lgμ + x.lgσ * x.lgz
+  return exp(lga + 1im * x.gp)
+end
+
 @inline function gainpol(x)
   @fastmath gR = exp(x.lgR + 1im * x.gpR)
   return gR, gR
@@ -27,6 +32,21 @@ function build_instrument(; lgamp_sigma=0.2, refant=SEFDReference(0.0))
 
   return InstrumentModel(G, intprior)
 end
+
+function build_instrument_auto(; lgamp_sigma=0.2, refant=SEFDReference(0.0))
+  G = SingleStokesGain(fgainh)
+  intprior = (
+    lgz=ArrayPrior(IIDSitePrior(IntegSeg(), Normal())),
+    lgμ=ArrayPrior(IIDSitePrior(TrackSeg(), Normal(0.0, lgamp_sigma));),
+    lgσ=ArrayPrior(IIDSitePrior(TrackSeg(), Exponential(lgamp_sigma));),
+    gp=ArrayPrior(IIDSitePrior(IntegSeg(), DiagonalVonMises(0.0, inv(π^2))), refant=refant, phase=true;
+                  space=IIDSitePrior(IntegSeg(), DiagonalVonMises(0.0, inv(π^2)))
+    )
+  )
+
+  return InstrumentModel(G, intprior)
+end
+
 
 function build_instrument_circular(; frcal=false, lgamp_sigma=0.2, noleakage=false)
 
