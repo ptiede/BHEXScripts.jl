@@ -9,7 +9,7 @@ include(joinpath(@__DIR__, "imaging_driver.jl"))
 LinearAlgebra.BLAS.set_num_threads(1)
 if Threads.nthreads() > 1
     VLBISkyModels.NFFT._use_threads[] = false
-    VLBISkyModels.FFTW.set_num_threads(1)
+    VLBISkyModels.FFTW.set_num_threads(Threads.nthreads())
 end
 
 
@@ -143,7 +143,7 @@ The details of the models are as follows:
         base = GMRF
     end
 
-    if base isa Matern || base isa MarkovRF
+    if base isa Matern || base isa MarkovRF || (base === GMRF && order == 1) 
         nx2 = nextprod((2,3,5,7), nx)
         ny2 = nextprod((2,3,5,7), ny)
         if (nx2 != nx) || (ny2 != ny)
@@ -152,7 +152,7 @@ The details of the models are as follows:
             nx = nx2
             ny = ny2
         end
-    elseif base === GMRF
+    elseif base === GMRF && order > 1
         nx2 = nextprod((2,3,5,7), nx+1)
         ny2 = nextprod((2,3,5,7), ny+1)
         if (nx2 != nx+1) || (ny2 != ny+1)
