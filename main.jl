@@ -46,6 +46,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `--polrep`: The polarization representation. The default of PolExp which uses a matrix exponential representation.
 - `--refsite`: The reference site for EVPA calibration. Default is `ALMA`.
 - `--fthreads`: The number of threads to use for the FINUFFT algorithm. Default is 1. For large data sets make this bigger.
+- `--start`: Path to a starting serialized file to initialize the MCMC.
 
 # Flags
 
@@ -86,6 +87,7 @@ The details of the models are as follows:
     maxiters::Int=15_000,
     polarized::Bool=false,
     polrep::String="PolExp",
+    start::String="",
     frcal::Bool=false,
     ntrials::Int=10,
     noleakage::Bool=false,
@@ -243,7 +245,8 @@ The details of the models are as follows:
         imgmod = ImagingModel(prep, mod, g, ftotpr; base, order, center=false)
     end
     skpr = skyprior(imgmod; beamsize=beam)
-    skym = SkyModel(imgmod, skpr, g; algorithm=NonuniformFFTsAlg())
+    VLBISkyModels.FFTW.set_num_threads(fthreads)
+    skym = SkyModel(imgmod, skpr, g; algorithm=FINUFFTAlg(;threads=fthreads))
 
     nogains && polarized && throw(ArgumentError("--nogains flag with polarized imaging if not surported currently."))
 
@@ -263,6 +266,15 @@ The details of the models are as follows:
         @info "You are assuming you have a perfect instrument"
         intm = Comrade.IdealInstrumentModel()
     end
+
+
+    if start != ""
+        @info "Loading starting image from $start"
+        startx = deserialize(start)
+    else
+        startx = nothing
+    end
+
 
     comrade_imager(
         data, outpath, skym, intm;
