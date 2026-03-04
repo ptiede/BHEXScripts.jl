@@ -530,12 +530,12 @@ end
 function genmeanprior(::LyapunovRing)
     return Dict(
         :r0 => Uniform(μas2rad(10.0), μas2rad(30.0)),
-        :w => Uniform(0.05, 1.0),
+        :w => Uniform(0.1, 1.0),
         :α0 => Normal(),
         :r1 => Uniform(μas2rad(10.0), μas2rad(30.0)),
         :γ => Uniform(0.0, π),
         :α1 => Normal(),
-        :df1 => Normal(0.0, 0.2),
+        :df1 => Normal(0.0, 1.0),
         :x1 => Uniform(-μas2rad(6.0), μas2rad(6.0)),
         :y1 => Uniform(-μas2rad(6.0), μas2rad(6.0))
     )
@@ -547,11 +547,11 @@ centerfix(::Type{<:LyapunovDblRing}) = false
 
 
 function make_mean(::LyapunovDblRing, grid, θ)
-    (; r0, w, α0, r1, γ, α1, df1, x1, y1) = θ
+    (; r0, w, α0, τ0, ξτ0, r1, γ, α1, τ1, ξτ1, df1, x1, y1) = θ
 
-    m0 = modify(RingTemplate(RadialJohnsonSU(w, α0), AzimuthalUniform()), Stretch(r0))
+    m0 = modify(RingTemplate(RadialJohnsonSU(w, α0), AzimuthalUniform()), Stretch(r0, r0 * (1 + τ0)), Rotate(ξτ0 / 2))
     m1 = modify(RingTemplate(RadialJohnsonSU(w * exp(-γ), α1), AzimuthalUniform()),
-        Stretch(r1), Shift(x1, y1))
+        Stretch(r1, (r1) * (1 + τ1)), Rotate(ξτ1 / 2), Shift(x1, y1))
 
     mimg0 = intensitymap(m0, grid)
     mimg1 = intensitymap(m1, grid)
@@ -568,13 +568,59 @@ end
 function genmeanprior(::LyapunovDblRing)
     return Dict(
         :r0 => Uniform(μas2rad(10.0), μas2rad(30.0)),
-        :w => Uniform(0.05, 1.0),
-        :α0 => Normal(-1.0, 1.0),
+        :w => Uniform(0.1, 1.0),
+        :α0 => Uniform(-2.0, 2.0),
+        :τ0 => Exponential(0.25),
+        :ξτ0 => DiagonalVonMises(0.0, inv(π^2)),
         :r1 => Uniform(μas2rad(10.0), μas2rad(30.0)),
-        :γ => Uniform(0.0, 2π),
-        :α1 => Normal(-1.0, 1.0),
-        :df1 => Normal(0.0, 0.2),
+        :γ => Uniform(0.5, 1.5π),
+        :α1 => Uniform(-2.0, 2.0),
+        :τ1 => Exponential(0.025),
+        :ξτ1 => DiagonalVonMises(0.0, inv(π^2)),
+        :df1 => Uniform(-1.0, 1.0),
         :x1 => Uniform(-μas2rad(6.0), μas2rad(6.0)),
         :y1 => Uniform(-μas2rad(6.0), μas2rad(6.0))
     )
 end
+
+
+struct LyapunovDbl end
+centerfix(::Type{<:LyapunovDbl}) = false
+
+
+function make_mean(::LyapunovDbl, grid, θ)
+    (; r0, w, α0, τ0, ξτ0, r1, γ, τ1, ξτ1, df1, x1, y1) = θ
+
+    m0 = modify(RingTemplate(RadialJohnsonSU(w, α0), AzimuthalUniform()), Stretch(r0, r0 * (1 + τ0)), Rotate(ξτ0 / 2))
+    m1 = modify(RingTemplate(RadialGaussian(w * exp(-γ)), AzimuthalUniform()),
+        Stretch(r1, (r1) * (1 + τ1)), Rotate(ξτ1 / 2), Shift(x1, y1))
+
+    mimg0 = intensitymap(m0, grid)
+    mimg1 = intensitymap(m1, grid)
+
+    pmimg = baseimage(mimg0)
+    f0 = Comrade._fastsum(pmimg)
+    f1 = Comrade._fastsum(baseimage(mimg1))
+    @inbounds for i in eachindex(pmimg)
+        pmimg[i] = (pmimg[i] / f0 + exp(-γ + df1) * mimg1[i] / f1) / (1 + exp(-γ + df1))
+    end
+    return mimg0
+end
+
+function genmeanprior(::LyapunovDbl)
+    return Dict(
+        :r0 => Uniform(μas2rad(10.0), μas2rad(30.0)),
+        :w => Uniform(0.1, 1.0),
+        :α0 => Uniform(-2.0, 2.0),
+        :τ0 => Exponential(0.25),
+        :ξτ0 => DiagonalVonMises(0.0, inv(π^2)),
+        :r1 => Uniform(μas2rad(10.0), μas2rad(30.0)),
+        :γ => Uniform(0.5, 1.5π),
+        :τ1 => Exponential(0.025),
+        :ξτ1 => DiagonalVonMises(0.0, inv(π^2)),
+        :df1 => Uniform(-1.0, 1.0),
+        :x1 => Uniform(-μas2rad(6.0), μas2rad(6.0)),
+        :y1 => Uniform(-μas2rad(6.0), μas2rad(6.0))
+    )
+end
+

@@ -39,3 +39,9 @@ function fix_nans_elevation!(data)
     end
 end
 
+function load_chain_and_post(cfile, itr=Colon())
+    chain = load_samples(cfile, itr)
+    post = deserialize(cfile*"_post.jls")[:post]
+    return chain, post
+end
+
