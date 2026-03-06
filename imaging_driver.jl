@@ -63,7 +63,8 @@ function comrade_imager(data, outbase, skym, intm; maxiters=15_000, ntrials=10,
         # Start by essentially tempering the likelihood
         post0 = VLBIPosterior(skym, intm, add_fractional_noise(data, 0.05); admode=set_runtime_activity(Enzyme.Reverse))
         sols, ℓopt = best_image(post0, ntrials, maxiters, rng)
-
+        
+        sols[1].instrument.lg .= 0.0 # reset the amplitudes to zero
         # Now lets get a little closer to the truth
         post1 = VLBIPosterior(skym, intm, add_fractional_noise(data, 0.025); admode=set_runtime_activity(Enzyme.Reverse))
         xopt1, sol = comrade_opt(post1, Adam();
@@ -74,6 +75,7 @@ function comrade_imager(data, outbase, skym, intm; maxiters=15_000, ntrials=10,
 
 
         post2 = VLBIPosterior(skym, intm, add_fractional_noise(data, 0.01); admode=set_runtime_activity(Enzyme.Reverse))
+        xopt1.instrument.lg .= 0.0
         xopt2, sol = comrade_opt(post2, Adam();
             initial_params=xopt1, maxiters=maxiters ÷ 2, g_tol=1e-1)
 
