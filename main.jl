@@ -222,12 +222,12 @@ The details of the models are as follows:
         @info "Assuming the image is a ring with a background jet"
     elseif model == "isojet"
         @info "Assuming the image is a isotropic jet structure"
-        m = modify(Gaussian(), Stretch(beam / 2))
+        m = modify(TBlob(3.0), Stretch(beam / 2))
         mimg = intensitymap(m, g)
         mod = MimgPlusBkgd(mimg ./ sum(mimg))
     elseif model == "jet"
         @info "Assuming the image is an anisotropic jet structure"
-        m = modify(Gaussian(), Stretch(beam / 2))
+        m = modify(TBlob(3.0), Stretch(beam / 2))
         mimg = intensitymap(m, g)
         mod = JetGauss(mimg ./ sum(mimg))
     elseif model == "lyapunovdbl"
