@@ -82,7 +82,7 @@ The details of the models are as follows:
     model::String="ring",
     restart::Bool=false, benchmark::Bool=false, nsample::Int=5_000, nadapt::Int=2_500,
     scanavg::Bool=false,
-    space::Bool=false,
+    flgspace::Bool=false,
     ferr::Float64=0.0,
     maxiters::Int=15_000,
     polarized::Bool=false,
@@ -195,8 +195,8 @@ The details of the models are as follows:
     else
         obsavg = obs.flag_uvdist(uv_min=uvmin)
     end
-    if space
-        @warn "We are flagging space baselines as requested by the `--space` flag"
+    if flgspace
+        @warn "We are flagging space baselines as requested by the `--flgspace` flag"
         obsavg = obsavg.flag_sites(["space"])
     end
     data = add_fractional_noise(extract_table(obsavg, dp), ferr)
@@ -222,17 +222,20 @@ The details of the models are as follows:
         @info "Assuming the image is a ring with a background jet"
     elseif model == "isojet"
         @info "Assuming the image is a isotropic jet structure"
-        m = modify(Gaussian(), Stretch(beam / 2))
+        m = modify(TBlob(3.0), Stretch(beam / 2))
         mimg = intensitymap(m, g)
         mod = MimgPlusBkgd(mimg ./ sum(mimg))
     elseif model == "jet"
         @info "Assuming the image is an anisotropic jet structure"
-        m = modify(Gaussian(), Stretch(beam / 2))
+        m = modify(TBlob(3.0), Stretch(beam / 2))
         mimg = intensitymap(m, g)
         mod = JetGauss(mimg ./ sum(mimg))
+    elseif model == "lyapunovdbl"
+        @info "Assuming the image is a Lyanpunov Dbl ring structure"
+        mod = LyapunovDblRing()
     elseif model == "lyapunov"
         @info "Assuming the image is a Lyanpunov ring structure"
-        mod = LyapunovRing()
+        mod = LyapunovDbl()
     elseif model == "flat"
         @info "No mean image"
         mod = Flat(g)
@@ -280,6 +283,6 @@ The details of the models are as follows:
         data, outpath, skym, intm;
         nsample, nadapt,
         restart, benchmark,
-        maxiters=maxiters, ntrials=ntrials, nimgs
+        maxiters=maxiters, ntrials=ntrials, nimgs, start=startx
     )
 end

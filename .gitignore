@@ -2,9 +2,12 @@
 Data
 data
 Runs
+runs/
 runs*/
 RunsGenV
 ZachRuns*/
 highres/
 uvfits_take0*/
+PhotonRingRuns/
+PhotonRing/
 Manifest.toml
