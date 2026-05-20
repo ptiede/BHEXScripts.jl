@@ -18,12 +18,12 @@ function best_image(post, ntrials=20, maxiters=10_000, rng=rng)
     sols = map(1:ntrials) do i
         xopt0, sol0 = comrade_opt(post, Adam();
                            initial_params=prior_sample(rng, post), maxiters=maxiters÷2, g_tol=1e-1)
-        @info "Preliminary image $i/$(ntrials) done: minimum: $(sol0.minimum)"
+        @info "Preliminary image $i/$(ntrials) done: objective: $(sol0.objective)"
 
         xopt1, sol1 = comrade_opt(post, Adam();
                            initial_params=xopt0, maxiters=maxiters÷2, g_tol=1e-1)
-        @info "Best image $i/$(ntrials) done: minimum: $(sol1.minimum)"
-        return (sol0.minimum < sol1.minimum ? xopt0 : xopt1)
+        @info "Best image $i/$(ntrials) done: objective: $(sol1.objective)"
+        return (sol0.objective < sol1.objective ? xopt0 : xopt1)
     end
     lmaps = sum.(logdensityof.(Ref(post), sols))
     inds = sortperm(filter(!isnan, lmaps), rev=true)
@@ -37,5 +37,11 @@ function fix_nans_elevation!(data)
         isnan(el1[i]) && (el1[i] = 0.0)
         isnan(el2[i]) && (el2[i] = 0.0)
     end
+end
+
+function load_chain_and_post(file, nsamples = Base.Colon())
+    chain = load_samples(file, nsamples)
+    post = deserialize(file * "_post.jls")[:post]
+    return chain, post
 end
 

@@ -427,10 +427,56 @@ function genmeanprior(::Flat)
     return Dict()
 end
 
+struct GaussMean{G}
+    grid::G
+end
+
+function make_mean(::GaussMean, grid, θ)
+    (; r) = θ
+    img = intensitymap(modify(Gaussian(), Stretch(r)), grid)
+    return img
+end
+
+function genmeanprior(m::GaussMean)
+    fovx, fovy = fieldofview(m.grid)
+    dx, dy = pixelsizes(m.grid)
+    fov = max(fovx, fovy)
+    dp = max(dx, dy)
+    return Dict(
+        :r => Uniform(dp * 2, fov / 3)
+    )
+end
+
+
+struct TBlobMean{G} 
+    grid::G
+end
+
+function make_mean(::TBlobMean, grid, θ)
+    (; r, s) = θ
+    img = intensitymap(modify(TBlob(s), Stretch(r)), grid)
+    return img
+end
+
+function genmeanprior(m::TBlobMean)
+    fovx, fovy = fieldofview(m.grid)
+    dx, dy = pixelsizes(m.grid)
+    fov = max(fovx, fovy)
+    dp = max(dx, dy)
+    return Dict(
+        :r => Uniform(dp * 2, fov / 3),
+        :s => Uniform(1.0, 10.0)
+    )
+end
+
+
+
+
 
 struct JetGauss{M}
     core::M
 end
+
 
 function make_mean(mimg::JetGauss, grid, θ)
     (; r, τ, ξτ, x, y, fj) = θ
@@ -473,7 +519,7 @@ end
 
 function genmeanprior(::DblRing)
     return Dict(
-        :r0 => Uniform(μas2rad(10.0), μas2rad(40.0)),
+        :r0 => Uniform(μas2rad(0.1), μas2rad(40.0)),
         :ain => Uniform(0.0, 20.0),
         :aout => Uniform(1.0, 20.0),
     )
@@ -498,7 +544,7 @@ end
 
 function genmeanprior(::DblRingWBkgd)
     return Dict(
-        :r0 => Uniform(μas2rad(10.0), μas2rad(40.0)),
+        :r0 => Uniform(μas2rad(0.01), μas2rad(40.0)),
         :ain => Uniform(0.0, 20.0),
         :aout => Uniform(1.0, 20.0),
         :fb => Beta(1.0, 5.0)

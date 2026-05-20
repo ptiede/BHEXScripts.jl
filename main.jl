@@ -29,6 +29,7 @@ Fits BHEX data using Comrade and ring prior for the image.
 - `-p, --psize`: the pixel size in microarcseconds. Default is 1 μas.
 - `-x, --x`: the x offset of image center in microarcseconds. Default is 0 μas.
 - `-y, --y`: the y offset of image center in microarcseconds. Default is 0 μas.
+- `--avg`: the averaging factor for the data. Default is 0 i.e. no averaging. If --scanavg we ignore this prompt and do scan averaging instead.
 - `--pa`: The position angle of the grid in degrees. Default is 0 degrees.
 - `--ftot`: The total flux. Can either we two numbers, i.e. 0.1, 2.5 which mean it fits the
             total flux within that range, or a single number which means it fixes the total flux
@@ -68,6 +69,8 @@ The details of the models are as follows:
  - `isojet` is a core with a constant floor that is fit. 
  - `jet` is fits the the jet with a asymmetric Gaussian. Note that `:jet` can be quite hard to fit. 
  - `flat` is a flat image with no structure.
+ - `gauss` is a Gaussian image with no background.
+ - `tblob` is a T-Distribution blob with a power law tail and no background
 
 """
 @main function main(uvfile::String; outpath::String="",
@@ -82,6 +85,7 @@ The details of the models are as follows:
     model::String="ring",
     restart::Bool=false, benchmark::Bool=false, nsample::Int=5_000, nadapt::Int=2_500,
     scanavg::Bool=false,
+    avg::Float64=0.0,
     space::Bool=false,
     ferr::Float64=0.0,
     maxiters::Int=15_000,
@@ -89,7 +93,7 @@ The details of the models are as follows:
     polrep::String="PolExp",
     start::String="",
     frcal::Bool=false,
-    ntrials::Int=10,
+    ntrials::Int=5,
     noleakage::Bool=false,
     nogains::Bool=false,
     gauto::Bool=false,
@@ -192,6 +196,9 @@ The details of the models are as follows:
     obs.add_scans()
     if scanavg
         obsavg = scan_average(obs.flag_uvdist(uv_min=uvmin))
+    elseif avg > 0 && !scanavg
+        @warn "Averaging the data with a factor of $(avg)s."
+        obsavg = obs.flag_uvdist(uv_min=uvmin).avg_coherent(avg)
     else
         obsavg = obs.flag_uvdist(uv_min=uvmin)
     end
@@ -236,6 +243,12 @@ The details of the models are as follows:
     elseif model == "flat"
         @info "No mean image"
         mod = Flat(g)
+    elseif model == "gauss"
+        @info "Assuming the image is Gaussian like"
+        mod = GaussMean(g)
+    elseif model == "tblob"
+        @info "Assuming the image is a blob with a power law tail"
+        mod = TBlobMean(g)
     else
         throw(ArgumentError("Unknown model: $model please pick from \"ringnojet\", \"ring\", \"isojet\", \"jet\""))
     end
