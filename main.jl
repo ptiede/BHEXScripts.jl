@@ -278,6 +278,7 @@ The details of the models are as follows:
         startx = nothing
     end
 
+    outpath = outpath * "_fov=$(fovx)_psize=$(psize)_model=$(model)_uvmin=$(uvmin)_order=$(order)_ferr=$(ferr)_flgspace=$(flgspace)"
 
     comrade_imager(
         data, outpath, skym, intm;

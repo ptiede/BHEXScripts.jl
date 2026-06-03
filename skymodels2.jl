@@ -560,23 +560,23 @@ function make_mean(::LyapunovDblRing, grid, θ)
     f0 = Comrade._fastsum(pmimg)
     f1 = Comrade._fastsum(baseimage(mimg1))
     @inbounds for i in eachindex(pmimg)
-        pmimg[i] = (pmimg[i] / f0 + exp(-γf) * mimg1[i] / f1) / (1 + exp(-γf))
+        pmimg[i] = (pmimg[i] / f0 + exp(-γf) * mimg1[i] / f1)
     end
     return mimg0
 end
 
 function genmeanprior(::LyapunovDblRing)
     return Dict(
-        :r0 => Uniform(μas2rad(10.0), μas2rad(30.0)),
+        :r0 => Uniform(μas2rad(5.0), μas2rad(30.0)),
         :w => Uniform(0.1, 1.0),
-        :α0 => Uniform(-2.0, 2.0),
+        :α0 => Uniform(-5.0, 5.0),
         :τ0 => Exponential(0.25),
         :ξτ0 => DiagonalVonMises(0.0, inv(π^2)),
         :r1 => Uniform(μas2rad(10.0), μas2rad(30.0)),
-        :γ => Uniform(0.5, 1.5π),
-        :γf=> Uniform(0.1, 1.5π),
+        :γ => Uniform(0.1, π),
+        :γf=> Uniform(0.1, π),
         :α1 => Uniform(-2.0, 2.0),
-        :τ1 => Exponential(0.025),
+        :τ1 => Exponential(0.05),
         :ξτ1 => DiagonalVonMises(0.0, inv(π^2)),
         :x1 => Uniform(-μas2rad(6.0), μas2rad(6.0)),
         :y1 => Uniform(-μas2rad(6.0), μas2rad(6.0))
@@ -602,25 +602,25 @@ function make_mean(::LyapunovDbl, grid, θ)
     f0 = Comrade._fastsum(pmimg)
     f1 = Comrade._fastsum(baseimage(mimg1))
     @inbounds for i in eachindex(pmimg)
-        pmimg[i] = (pmimg[i] / f0 + exp(-γf) * mimg1[i] / f1) / (1 + exp(-γf))
+        pmimg[i] = (pmimg[i] / f0 + exp(-γf) * mimg1[i] / f1)
     end
     return mimg0
 end
 
 function genmeanprior(::LyapunovDbl)
     return Dict(
-        :r0 => Uniform(μas2rad(10.0), μas2rad(30.0)),
+        :r0 => Uniform(μas2rad(5.0), μas2rad(30.0)),
         :w => Uniform(0.1, 1.0),
-        :α0 => Uniform(-2.0, 2.0),
+        :α0 => Uniform(-5.0, 5.0),
         :τ0 => Exponential(0.25),
         :ξτ0 => DiagonalVonMises(0.0, inv(π^2)),
         :r1 => Uniform(μas2rad(10.0), μas2rad(30.0)),
-        :γ => Uniform(0.5, 1.5π),
-        :γf=> Uniform(0.1, 1.5π),
-        :τ1 => Exponential(0.025),
+        :γ => Uniform(0.1, 1π),
+        :γf=> Uniform(0.1, 1π),
+        :τ1 => Exponential(0.05),
         :ξτ1 => DiagonalVonMises(0.0, inv(π^2)),
-        :x1 => Uniform(-μas2rad(6.0), μas2rad(6.0)),
-        :y1 => Uniform(-μas2rad(6.0), μas2rad(6.0))
+        :x1 => Uniform(-μas2rad(8.0), μas2rad(8.0)),
+        :y1 => Uniform(-μas2rad(8.0), μas2rad(8.0))
     )
 end
 
